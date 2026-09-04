@@ -388,6 +388,278 @@
     });
   }
 
+  // Preset Wallpapers
+  const PRESET_WALLPAPERS = {
+    'default': '', // native default CSS gradients
+    'light-clean': 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080"><defs><radialGradient id="lg1" cx="10%" cy="20%" r="50%"><stop offset="0%" stop-color="%2300479d" stop-opacity="0.08"/><stop offset="100%" stop-color="%23f0f4f9" stop-opacity="0"/></radialGradient><radialGradient id="lg2" cx="90%" cy="80%" r="50%"><stop offset="0%" stop-color="%230284c7" stop-opacity="0.08"/><stop offset="100%" stop-color="%23f0f4f9" stop-opacity="0"/></radialGradient></defs><rect width="100%" height="100%" fill="%23f0f4f9"/><rect width="100%" height="100%" fill="url(%23lg1)"/><rect width="100%" height="100%" fill="url(%23lg2)"/></svg>',
+    'jlu-navy': 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080"><defs><radialGradient id="ng1" cx="50%" cy="0%" r="70%"><stop offset="0%" stop-color="%2317325c"/><stop offset="100%" stop-color="%23081324"/></radialGradient></defs><rect width="100%" height="100%" fill="%230b1a30"/><rect width="100%" height="100%" fill="url(%23ng1)"/></svg>'
+  };
+
+  let pendingWallpaperData = '';
+
+  function applyWallpaper(wallpaperData) {
+    state.customWallpaper = wallpaperData || '';
+    if (state.customWallpaper) {
+      document.body.classList.add('has-custom-wallpaper');
+      document.body.style.backgroundImage = `url("${state.customWallpaper}")`;
+    } else {
+      document.body.classList.remove('has-custom-wallpaper');
+      document.body.style.backgroundImage = '';
+    }
+  }
+
+  function applyTheme(isDark) {
+    state.isDarkTheme = !!isDark;
+    document.body.classList.remove('theme-dark', 'theme-light');
+    document.body.classList.add(state.isDarkTheme ? 'theme-dark' : 'theme-light');
+    const themeToggleBtn = document.getElementById('themeToggleBtn');
+    if (themeToggleBtn) {
+      const icon = themeToggleBtn.querySelector('.theme-icon');
+      if (icon) icon.textContent = state.isDarkTheme ? '🌙' : '☀️';
+    }
+  }
+
+  function saveSettings(partial) {
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      chrome.storage.local.get(['nmj_settings'], (res) => {
+        const s = res.nmj_settings || {};
+        Object.assign(s, partial);
+        chrome.storage.local.set({ nmj_settings: s });
+      });
+    }
+    if (partial.customWallpaper !== undefined) {
+      localStorage.setItem('nmj_custom_wallpaper', partial.customWallpaper);
+    }
+    if (partial.theme !== undefined) {
+      localStorage.setItem('nmj_theme', partial.theme);
+    }
+  }
+
+  function initWallpaperAndTheme() {
+    const localTheme = localStorage.getItem('nmj_theme');
+    const localWp = localStorage.getItem('nmj_custom_wallpaper');
+
+    if (localTheme) {
+      applyTheme(localTheme === 'dark');
+    }
+    if (localWp) {
+      applyWallpaper(localWp);
+    }
+
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      chrome.storage.local.get(['nmj_settings'], (res) => {
+        const settings = res.nmj_settings || {};
+        if (settings.theme) {
+          applyTheme(settings.theme === 'dark');
+        }
+        if (settings.customWallpaper !== undefined) {
+          applyWallpaper(settings.customWallpaper);
+        }
+      });
+
+      chrome.storage.onChanged.addListener((changes, area) => {
+        if (area === 'local' && changes.nmj_settings && changes.nmj_settings.newValue) {
+          const newSettings = changes.nmj_settings.newValue;
+          if (newSettings.theme) {
+            applyTheme(newSettings.theme === 'dark');
+          }
+          if (newSettings.customWallpaper !== undefined) {
+            applyWallpaper(newSettings.customWallpaper);
+          }
+        }
+      });
+    }
+
+    initWallpaperModal();
+  }
+
+  function initWallpaperModal() {
+    const modal = document.getElementById('wallpaperModal');
+    const btnOpen = document.getElementById('wallpaperBtn');
+    const btnClose = document.getElementById('closeWallpaperModalBtn');
+    const btnCancel = document.getElementById('btnCancelWallpaper');
+    const btnSave = document.getElementById('btnSaveWallpaper');
+    const btnClear = document.getElementById('btnClearWallpaper');
+
+    const tabBtns = document.querySelectorAll('.wp-tab-btn');
+    const tabLocal = document.getElementById('wpTabLocal');
+    const tabUrl = document.getElementById('wpTabUrl');
+    const tabPresets = document.getElementById('wpTabPresets');
+
+    const dropzone = document.getElementById('wpDropzone');
+    const fileInput = document.getElementById('wpFileInput');
+    const urlInput = document.getElementById('wpUrlInput');
+    const btnPreviewUrl = document.getElementById('btnPreviewUrl');
+
+    const previewSection = document.getElementById('wpPreviewSection');
+    const previewImg = document.getElementById('wpPreviewImg');
+    const previewInfo = document.getElementById('wpPreviewInfo');
+
+    const presetCards = document.querySelectorAll('.wp-preset-card');
+
+    if (!modal || !btnOpen) return;
+
+    function openModal() {
+      pendingWallpaperData = state.customWallpaper;
+      if (pendingWallpaperData) {
+        showPreview(pendingWallpaperData, '当前正在使用壁纸');
+        if (pendingWallpaperData.startsWith('http')) {
+          switchTab('url');
+          if (urlInput) urlInput.value = pendingWallpaperData;
+        } else {
+          switchTab('local');
+        }
+      } else {
+        switchTab('local');
+        if (previewSection) previewSection.style.display = 'none';
+      }
+      modal.style.display = 'flex';
+    }
+
+    function closeModal() {
+      modal.style.display = 'none';
+    }
+
+    btnOpen.addEventListener('click', openModal);
+    if (btnClose) btnClose.addEventListener('click', closeModal);
+    if (btnCancel) btnCancel.addEventListener('click', closeModal);
+
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) closeModal();
+    });
+
+    function switchTab(tabName) {
+      tabBtns.forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.tab === tabName);
+      });
+      if (tabLocal) tabLocal.style.display = (tabName === 'local') ? 'block' : 'none';
+      if (tabUrl) tabUrl.style.display = (tabName === 'url') ? 'block' : 'none';
+      if (tabPresets) tabPresets.style.display = (tabName === 'presets') ? 'block' : 'none';
+    }
+
+    tabBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        switchTab(btn.dataset.tab);
+      });
+    });
+
+    function showPreview(dataUrl, info) {
+      if (previewSection && previewImg) {
+        previewImg.src = dataUrl;
+        if (previewInfo) previewInfo.textContent = info || '';
+        previewSection.style.display = 'block';
+      }
+    }
+
+    if (dropzone && fileInput) {
+      dropzone.addEventListener('click', () => fileInput.click());
+
+      dropzone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropzone.classList.add('dragover');
+      });
+      dropzone.addEventListener('dragleave', () => {
+        dropzone.classList.remove('dragover');
+      });
+      dropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropzone.classList.remove('dragover');
+        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+          processImageFile(e.dataTransfer.files[0]);
+        }
+      });
+
+      fileInput.addEventListener('change', (e) => {
+        if (e.target.files && e.target.files[0]) {
+          processImageFile(e.target.files[0]);
+        }
+      });
+    }
+
+    function processImageFile(file) {
+      if (!file.type.startsWith('image/')) {
+        alert('请选择有效的图片文件 (JPG / PNG / WEBP)！');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        const rawDataUrl = evt.target.result;
+        const img = new Image();
+        img.onload = function() {
+          const maxDim = 2560;
+          let width = img.width;
+          let height = img.height;
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            pendingWallpaperData = canvas.toDataURL('image/jpeg', 0.88);
+          } else {
+            pendingWallpaperData = rawDataUrl;
+          }
+          const kb = Math.round(pendingWallpaperData.length * 0.75 / 1024);
+          showPreview(pendingWallpaperData, `本地图片 (${file.name}, 约 ${kb}KB)`);
+        };
+        img.src = rawDataUrl;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    if (btnPreviewUrl && urlInput) {
+      btnPreviewUrl.addEventListener('click', () => {
+        const url = urlInput.value.trim();
+        if (url) {
+          pendingWallpaperData = url;
+          showPreview(url, '网络图片');
+        }
+      });
+    }
+
+    presetCards.forEach(card => {
+      card.addEventListener('click', () => {
+        presetCards.forEach(c => c.classList.remove('active'));
+        card.classList.add('active');
+        const presetKey = card.dataset.preset;
+        pendingWallpaperData = PRESET_WALLPAPERS[presetKey] || '';
+        if (pendingWallpaperData) {
+          showPreview(pendingWallpaperData, card.querySelector('.wp-preset-name')?.textContent || '预设背景');
+        } else {
+          if (previewSection) previewSection.style.display = 'none';
+        }
+      });
+    });
+
+    if (btnSave) {
+      btnSave.addEventListener('click', () => {
+        applyWallpaper(pendingWallpaperData);
+        saveSettings({
+          customWallpaper: pendingWallpaperData,
+          theme: state.isDarkTheme ? 'dark' : 'light'
+        });
+        closeModal();
+      });
+    }
+
+    if (btnClear) {
+      btnClear.addEventListener('click', () => {
+        pendingWallpaperData = '';
+        applyWallpaper('');
+        saveSettings({ customWallpaper: '' });
+        if (previewSection) previewSection.style.display = 'none';
+        closeModal();
+      });
+    }
+  }
+
   // Initialization
   async function init() {
     await loadCampusConfig();
@@ -402,6 +674,7 @@
     initHoverCard();
     startClock();
     updateDateControls();
+    initWallpaperAndTheme();
 
     // Trigger parallel full fetch
     loadParallelTimelineData();
@@ -422,9 +695,8 @@
     const themeToggleBtn = document.getElementById('themeToggleBtn');
     if (themeToggleBtn) {
       themeToggleBtn.addEventListener('click', () => {
-        state.isDarkTheme = !state.isDarkTheme;
-        document.body.className = state.isDarkTheme ? 'theme-dark' : 'theme-light';
-        themeToggleBtn.querySelector('.theme-icon').textContent = state.isDarkTheme ? '🌙' : '☀️';
+        applyTheme(!state.isDarkTheme);
+        saveSettings({ theme: state.isDarkTheme ? 'dark' : 'light' });
       });
     }
 

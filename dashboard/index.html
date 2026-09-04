@@ -42,6 +42,10 @@
           <span class="sync-icon">🔄</span>
         </button>
 
+        <button id="wallpaperBtn" class="btn-icon" title="自定义仪表盘背景壁纸">
+          <span class="wallpaper-icon">🖼️</span>
+        </button>
+
         <button id="themeToggleBtn" class="btn-icon" title="切换深色/浅色模式">
           <span class="theme-icon">☀️</span>
         </button>
@@ -294,6 +298,82 @@
               ⚡ 尝试连接 WebVPN 教务接口同步
             </button>
             <span class="sync-hint-text">如未登录校园网/WebVPN，系统将自动回退至本地完整仿真库</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Wallpaper Customization Modal -->
+    <div id="wallpaperModal" class="sync-modal-overlay" style="display: none;">
+      <div class="wallpaper-modal-card">
+        <div class="sync-modal-header">
+          <div class="sync-modal-title">🖼️ 自定义仪表盘背景壁纸</div>
+          <button class="btn-close-modal" id="closeWallpaperModalBtn">✕</button>
+        </div>
+        <div class="wallpaper-modal-body">
+          <div class="wallpaper-modal-tabs">
+            <button class="wp-tab-btn active" id="tabBtnLocal" data-tab="local">📁 本地图片</button>
+            <button class="wp-tab-btn" id="tabBtnUrl" data-tab="url">🌐 网络图片</button>
+            <button class="wp-tab-btn" id="tabBtnPresets" data-tab="presets">🎨 原生预设</button>
+          </div>
+
+          <!-- Local Tab -->
+          <div class="wp-tab-content" id="wpTabLocal">
+            <div class="wp-dropzone" id="wpDropzone">
+              <div class="wp-dropzone-inner">
+                <span class="wp-dropzone-icon">📷</span>
+                <p class="wp-dropzone-title">点击选择本地壁纸图片，或直接拖拽到此处</p>
+                <span class="wp-dropzone-hint">支持 JPG、PNG、WEBP 高清本地壁纸（自动本地优化）</span>
+              </div>
+              <input type="file" id="wpFileInput" accept="image/*" style="display: none;">
+            </div>
+          </div>
+
+          <!-- URL Tab -->
+          <div class="wp-tab-content" id="wpTabUrl" style="display: none;">
+            <div class="wp-input-group">
+              <input type="text" id="wpUrlInput" class="wp-text-input" placeholder="https://example.com/wallpaper.jpg">
+              <button class="btn-secondary" id="btnPreviewUrl">预览</button>
+            </div>
+            <span class="wp-help-text">支持任意网络高清图片链接</span>
+          </div>
+
+          <!-- Presets Tab -->
+          <div class="wp-tab-content" id="wpTabPresets" style="display: none;">
+            <div class="wp-presets-grid">
+              <div class="wp-preset-card active" data-preset="default">
+                <div class="wp-preset-thumb preset-default-thumb"></div>
+                <div class="wp-preset-name">原生暗夜微光 (默认)</div>
+              </div>
+              <div class="wp-preset-card" data-preset="light-clean">
+                <div class="wp-preset-thumb preset-light-thumb"></div>
+                <div class="wp-preset-name">现代素雅浅色</div>
+              </div>
+              <div class="wp-preset-card" data-preset="jlu-navy">
+                <div class="wp-preset-thumb preset-navy-thumb"></div>
+                <div class="wp-preset-name">经典吉大深蓝</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Preview Area -->
+          <div class="wp-preview-section" id="wpPreviewSection" style="display: none;">
+            <div class="wp-preview-header">
+              <span>壁纸预览</span>
+              <span class="wp-preview-info" id="wpPreviewInfo"></span>
+            </div>
+            <div class="wp-preview-container">
+              <img id="wpPreviewImg" src="" alt="壁纸预览">
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div class="wp-modal-actions">
+            <button class="btn-text-danger" id="btnClearWallpaper">🗑️ 移除壁纸 (恢复默认)</button>
+            <div style="display: flex; gap: 10px;">
+              <button class="btn-secondary" id="btnCancelWallpaper">取消</button>
+              <button class="btn-primary" id="btnSaveWallpaper">保存并应用</button>
+            </div>
           </div>
         </div>
       </div>
