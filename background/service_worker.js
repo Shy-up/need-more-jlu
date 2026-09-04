@@ -49,22 +49,16 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 
   if (request.type === 'CHECK_AUTH_STATUS') {
-    // Check if user has active ticket AND if session warmup succeeds
-    chrome.cookies.get({ url: 'https://vpn.jlu.edu.cn', name: 'wengine_vpn_ticketvpn_jlu_edu_cn' }, async (vpnCookie) => {
-      const hasVpnTicket = Boolean(vpnCookie && vpnCookie.value);
-      if (!hasVpnTicket) {
-        // Also check if campus LAN or CAS TGC is present
-        const tgcCookie = await chrome.cookies.get({ url: 'https://cas.jlu.edu.cn', name: 'CASTGC' });
-        if (!tgcCookie || !tgcCookie.value) {
-          sendResponse({ isLoggedIn: false });
-          return;
-        }
-      }
-
-      // Verify that WebVPN or LAN session can actually fetch EMAP system
-      const verified = await verifyJluSessionActive();
-      sendResponse({ isLoggedIn: verified });
-    });
+    // Strictly verify if REAL classroom data can be queried from cxkxjs.do
+    // Only return isLoggedIn: true when actual classroom rows are successfully retrieved!
+    handleFetchClassrooms({ pageSize: 1 })
+      .then(result => {
+        const isRealDataReady = Boolean(result && result.success === true && Array.isArray(result.rows));
+        sendResponse({ isLoggedIn: isRealDataReady });
+      })
+      .catch(() => {
+        sendResponse({ isLoggedIn: false });
+      });
     return true; // async sendResponse
   }
 
@@ -80,30 +74,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       .then(result => sendResponse(result))
       .catch(err => sendResponse({ success: false, error: err.message || String(err) }));
     return true; // async sendResponse
-  }
-});
-
-// Auto-detect authentication callback / cookie establishment
-chrome.cookies.onChanged.addListener(async (changeInfo) => {
-  const { cookie, removed } = changeInfo;
-  if (removed) return;
-
-  // When ticket or CAS TGC is set, user completed QR code authentication
-  if (
-    cookie.name === 'wengine_vpn_ticketvpn_jlu_edu_cn' ||
-    cookie.name === 'CASTGC' ||
-    (cookie.name.includes('wengine_vpn_ticket') && (cookie.domain || '').includes('vpn.jlu.edu.cn'))
-  ) {
-    console.log('[need_more_jlu] 捕获到认证成功凭据写入:', cookie.name, cookie.domain);
-    // Warm up the educational session
-    await ensureJluSessionWarmup();
-    // Broadcast success to all active extension pages (e.g. dashboard)
-    chrome.runtime.sendMessage({
-      type: 'AUTH_SUCCESS',
-      cookieName: cookie.name
-    }).catch(() => {
-      // Ignore if no listener currently open
-    });
   }
 });
 

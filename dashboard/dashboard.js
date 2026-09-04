@@ -759,21 +759,9 @@
     startClock();
     updateDateControls();
     initWallpaperAndTheme();
-    listenAuthMessages();
 
     // Trigger parallel full fetch
     loadParallelTimelineData();
-  }
-
-  function listenAuthMessages() {
-    if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
-      chrome.runtime.onMessage.addListener((msg) => {
-        if (msg && msg.type === 'AUTH_SUCCESS') {
-          console.log('[need_more_jlu] 收到认证成功推送:', msg);
-          handleAuthSuccessNotification();
-        }
-      });
-    }
   }
 
   // Header Elements & Clock
@@ -2099,13 +2087,13 @@
 
     const statusText = document.getElementById('qrStatusText');
     if (statusText) {
-      statusText.innerHTML = '🎉 <strong>微信扫码认证成功！正在同步教务排课并刷新...</strong>';
+      statusText.innerHTML = '🎉 <strong>真实空闲教室数据获取成功！正在呈现课室舱位...</strong>';
     }
 
     setTimeout(() => {
       hideBarrierPanel();
       loadParallelTimelineData();
-    }, 800);
+    }, 600);
   }
 
   function startEmbeddedQrLoginFlow() {
@@ -2115,12 +2103,12 @@
 
     if (qrContainer) qrContainer.style.display = 'flex';
     if (statusText) {
-      statusText.innerHTML = '<span class="qr-status-dot pulse"></span> 正在预设二维码模式并唤起微信认证...';
+      statusText.innerHTML = '<span class="qr-status-dot pulse"></span> 正在打开官方微信扫码认证窗口...';
     }
 
     const openPopup = () => {
       if (statusText) {
-        statusText.innerHTML = '<span class="qr-status-dot pulse"></span> 正在等待微信扫码确认... 扫码完成后将自动关闭并刷新仪表盘';
+        statusText.innerHTML = '<span class="qr-status-dot pulse"></span> 正在等待微信扫码确认... 取得真实排课数据后将自动关闭并进入仪表盘';
       }
 
       // Open standard centered popup window without iframe frame-busting or CORS restrictions
@@ -2139,9 +2127,9 @@
         loginAuthWindow.focus();
       }
 
-      // Start auto polling for login completion as fallback
+      // Strictly probe cxkxjs.do: Only trigger reload when REAL data arrives
       stopQrLoginPolling();
-      qrPollTimer = setInterval(checkLoginAndAutoReload, 1500);
+      qrPollTimer = setInterval(checkLoginAndAutoReload, 2000);
     };
 
     // Pre-set last_select_type=qrcode_login so official CAS directly shows WeChat QR code tab
@@ -2167,7 +2155,8 @@
     }
 
     chrome.runtime.sendMessage({ type: 'CHECK_AUTH_STATUS' }, async (res) => {
-      if (res && res.isLoggedIn) {
+      // res.isLoggedIn is strictly backed by handleFetchClassrooms returning real rows
+      if (res && res.isLoggedIn === true) {
         handleAuthSuccessNotification();
       }
     });
