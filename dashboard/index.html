@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>吉大自习直达仪表盘 - need_more_jlu</title>
+  <link rel="stylesheet" href="dashboard.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+</head>
+<body class="theme-dark">
+  <div id="app" class="dashboard-container">
+    <!-- Top Navigation Header -->
+    <header class="dash-header">
+      <div class="header-left">
+        <div class="brand-badge">
+          <span class="brand-logo">🏛️ JLU</span>
+          <div class="brand-info">
+            <h1 class="brand-title">空闲自习室仪表盘</h1>
+            <span class="brand-subtitle">连坐指数 · 空间舱位选座 · 零废话直达</span>
+          </div>
+        </div>
+
+        <!-- Campus Selector (with persistent memory) -->
+        <div class="campus-selector-box">
+          <label for="campusSelect" class="selector-label">常驻校区</label>
+          <div class="select-wrapper">
+            <select id="campusSelect" class="dash-select">
+              <option value="nanling" selected>南岭校区（工科）</option>
+              <option value="qianwei">前卫南区（中心）</option>
+              <option value="chaoyang">朝阳校区（地质）</option>
+              <option value="xinmin">新民校区（医学）</option>
+              <option value="nanhu">南湖校区（信息）</option>
+              <option value="heping">和平校区（农学）</option>
+            </select>
+          </div>
+          <span class="memory-tag" id="campusMemoryTip">已自动记住</span>
+        </div>
+      </div>
+
+      <div class="header-right">
+        <!-- System Time Perception -->
+        <div class="time-perception-card" id="timePerceptionCard">
+          <div class="time-main">
+            <span class="live-dot"></span>
+            <span class="live-clock" id="liveClock">14:45</span>
+          </div>
+          <div class="time-sub" id="timeMeta">2026年秋季学期 · 第 1 周 · 星期五</div>
+          <div class="current-slot-badge" id="currentSlotBadge">当前进行中：第 6 节 (14:20-15:05)</div>
+        </div>
+
+        <button id="themeToggleBtn" class="btn-icon" title="切换深色/浅色模式">
+          <span class="theme-icon">🌙</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Workspace Layout -->
+    <div class="dash-layout">
+      <!-- Left / Top Control Panel: Presets & Filters -->
+      <aside class="control-panel">
+        <div class="panel-section">
+          <div class="section-title-row">
+            <span class="section-title">⚡ 快速情景预设</span>
+            <button class="btn-text" id="resetFiltersBtn">重置</button>
+          </div>
+          <div class="preset-grid">
+            <button class="preset-btn active" data-preset="now">
+              <span class="p-icon">⚡</span>
+              <span class="p-text">此时此刻有座</span>
+              <span class="p-hint">连续空闲优先</span>
+            </button>
+            <button class="preset-btn" data-preset="afternoon">
+              <span class="p-icon">☀️</span>
+              <span class="p-text">今天下午</span>
+              <span class="p-hint">5~8 节 (13:30-17:05)</span>
+            </button>
+            <button class="preset-btn" data-preset="evening">
+              <span class="p-icon">🌙</span>
+              <span class="p-text">今晚自习</span>
+              <span class="p-hint">9~11 节 (18:00-20:25)</span>
+            </button>
+            <button class="preset-btn" data-preset="marathon">
+              <span class="p-icon">⏳</span>
+              <span class="p-text">连坐大空档</span>
+              <span class="p-hint">连续 ≥ 4节无课</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 1~12 Session Multi-Select Matrix -->
+        <div class="panel-section">
+          <div class="section-title-row">
+            <span class="section-title">🕒 节次点阵多选</span>
+            <span class="section-tip" id="selectedSlotsCount">已选 4 节</span>
+          </div>
+          <div class="slots-matrix" id="slotsMatrix">
+            <!-- Dynamically populated 1~12 slots -->
+          </div>
+        </div>
+
+        <!-- Filters & Preferences -->
+        <div class="panel-section">
+          <div class="section-title">🛡️ 空间洁癖过滤</div>
+          <div class="filter-toggles">
+            <label class="toggle-control">
+              <input type="checkbox" id="hideLabsToggle" checked>
+              <span class="toggle-slider"></span>
+              <span class="toggle-label">一键隐藏机房与封闭实验室</span>
+            </label>
+            <label class="toggle-control">
+              <input type="checkbox" id="outletOnlyToggle">
+              <span class="toggle-slider"></span>
+              <span class="toggle-label">仅看插座便利教室 (笔记本党)</span>
+            </label>
+            <label class="toggle-control">
+              <input type="checkbox" id="largeRoomOnlyToggle">
+              <span class="toggle-slider"></span>
+              <span class="toggle-label">阶梯大教室优先 (宽敞无拘束)</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Legend -->
+        <div class="panel-section legend-section">
+          <div class="section-title">🎨 座舱状态图例</div>
+          <div class="legend-items">
+            <div class="legend-item"><span class="legend-dot status-free"></span> <strong>所选全空 (安心长坐)</strong></div>
+            <div class="legend-item"><span class="legend-dot status-partial"></span> <strong>部分空/中途有课 (需留意)</strong></div>
+            <div class="legend-item"><span class="legend-dot status-busy"></span> <strong>全占满 (无空位)</strong></div>
+            <div class="legend-item"><span class="legend-dot status-closed"></span> <strong>封闭场地/机房</strong></div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Right Main Content: Macro Overview & Floor Cabin Layout -->
+      <main class="main-content">
+        <!-- Building Macro Overview (Progress Rings & Cards) -->
+        <section class="macro-section">
+          <div class="macro-header">
+            <h2 class="macro-title">🏢 教学楼宏观占用看板</h2>
+            <div class="macro-summary" id="macroCampusSummary">南岭校区 · 共 6 栋教学楼 · 此时综合空闲率 68%</div>
+          </div>
+          <div class="building-cards-grid" id="buildingCardsGrid">
+            <!-- Dynamically injected building cards -->
+          </div>
+        </section>
+
+        <!-- Micro Floor Cabin View (Like Movie Theater / Flight Seat Map) -->
+        <section class="micro-section">
+          <div class="cabin-header">
+            <div class="cabin-title-box">
+              <h2 class="cabin-title" id="currentBuildingTitle">逸夫楼 (Yi Fu Building)</h2>
+              <span class="cabin-subtitle" id="currentBuildingSub">楼层选座舱位热力图 · 真实建筑空间映射</span>
+            </div>
+            <div class="cabin-actions">
+              <div class="view-pill-group">
+                <button class="pill-btn active" id="viewModeAll">全楼层俯瞰</button>
+                <button class="pill-btn" id="viewModeLowFloor">低楼层 (1~3F 免爬楼)</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Floor by Floor Seat Cabin Grid -->
+          <div class="cabin-floors-container" id="cabinFloorsContainer">
+            <!-- Dynamically rendered floors from 5F down to 1F -->
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <!-- Live Interactive Tooltip / Detail Modal -->
+    <div id="roomHoverCard" class="room-hover-card" style="display: none;">
+      <div class="card-arrow"></div>
+      <div class="card-inner">
+        <div class="card-header">
+          <div class="card-room-title" id="hoverRoomName">逸夫 201</div>
+          <span class="card-room-badge" id="hoverRoomType">阶梯大教室 · 180座</span>
+        </div>
+        <div class="card-safety-banner" id="hoverSafetyBanner">
+          <span class="safety-icon">🟢</span>
+          <span class="safety-text" id="hoverSafetyText">当前空闲，可连续自习至 17:30 (连续 4 节无课)</span>
+        </div>
+
+        <!-- 1~12 Slots Timeline Hot Bar -->
+        <div class="card-timeline-box">
+          <div class="timeline-title">全天 1~12 节课表走势</div>
+          <div class="timeline-bar" id="hoverTimelineBar">
+            <!-- 12 slot cells -->
+          </div>
+          <div class="timeline-labels">
+            <span>上午 1-4</span>
+            <span>下午 5-8</span>
+            <span>晚自习 9-12</span>
+          </div>
+        </div>
+
+        <!-- Physical Specs -->
+        <div class="card-specs-row">
+          <span class="spec-tag" id="hoverSpecOutlets">⚡ 靠墙插座充足</span>
+          <span class="spec-tag" id="hoverSpecAir">❄️ 有空调/风扇</span>
+          <span class="spec-tag" id="hoverSpecDesks">🪑 阶梯宽平桌</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="dashboard.js"></script>
+</body>
+</html>

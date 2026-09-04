@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <title>need_more_jlu 控制面板</title>
+  <title>need_more_jlu 扩展枢纽</title>
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
@@ -10,78 +10,51 @@
     <!-- Header -->
     <header class="popup-header">
       <div class="brand">
-        <div class="logo">JLU</div>
+        <div class="logo">🏛️</div>
         <div>
           <div class="title">need_more_jlu</div>
-          <div class="subtitle">吉大校园网增强</div>
+          <div class="subtitle">吉大校园增强 · 渐进实用工具</div>
         </div>
       </div>
-      <a href="../options/options.html" target="_blank" class="settings-icon" title="更多高级设置">⚙️</a>
+      <a href="../dashboard/index.html" target="_blank" class="full-screen-icon" title="全屏打开自习仪表盘">↗</a>
     </header>
 
-    <!-- Stats Bar -->
-    <div class="stats-bar">
-      <div class="stat-item">
-        <div class="stat-value" id="stat-unread">0</div>
-        <div class="stat-label">未读通知</div>
-      </div>
-      <div class="stat-divider"></div>
-      <div class="stat-item">
-        <div class="stat-value" id="stat-starred">0</div>
-        <div class="stat-label">星标收藏</div>
-      </div>
-      <div class="stat-divider"></div>
-      <div class="stat-item">
-        <div class="stat-value" id="stat-total">0</div>
-        <div class="stat-label">当前页条目</div>
-      </div>
-    </div>
-
-    <!-- Theme Switcher -->
-    <div class="section-title">🎨 主题与风格预设</div>
-    <div class="theme-grid">
-      <button class="theme-btn active" data-theme="light">
-        <span class="theme-icon">☀️</span>
-        <span>现代浅色</span>
-      </button>
-      <button class="theme-btn" data-theme="dark">
-        <span class="theme-icon">🌙</span>
-        <span>暗夜极客</span>
-      </button>
-      <button class="theme-btn" data-theme="sepia">
-        <span class="theme-icon">📜</span>
-        <span>护眼纸墨</span>
-      </button>
-      <button class="theme-btn" data-theme="navy">
-        <span class="theme-icon">🎓</span>
-        <span>经典吉大蓝</span>
-      </button>
-      <button class="theme-btn" data-theme="custom">
-        <span class="theme-icon">🖼️</span>
-        <span>自定义壁纸</span>
+    <!-- Hero Feature: Study Classroom Dashboard -->
+    <div class="hero-feature-card">
+      <div class="hero-tag">🔥 核心高频刚需</div>
+      <h2 class="hero-title">吉大自习直达仪表盘</h2>
+      <p class="hero-desc">空间座舱选座 · 连坐安全感指数 · 一键隐藏机房与封闭实验室</p>
+      <button class="btn btn-hero" id="btn-open-dashboard">
+        🚀 立即打开自习仪表盘
       </button>
     </div>
 
-    <!-- Quick Actions -->
-    <div class="section-title" style="margin-top: 14px;">⚡ 快捷操作</div>
-    <div class="actions-row">
-      <button class="btn btn-secondary" id="btn-mark-read">✓ 本页全部标为已读</button>
-      <button class="btn btn-primary" id="btn-open-oa">🚀 打开吉大 OA</button>
+    <!-- Secondary Feature: OA Toolbox Status -->
+    <div class="oa-toolbox-card">
+      <div class="oa-card-header">
+        <span class="oa-title">📋 官方 OA 极简工具箱</span>
+        <span class="oa-status-badge">已就绪</span>
+      </div>
+      <ul class="oa-feature-list">
+        <li><span>🛡️</span> 100% 官方原貌侧边抽屉（防篡改）</li>
+        <li><span>🚩</span> 「上次看到这里」隔离红线已激活</li>
+        <li><span>⚡</span> 零广告、零强制覆盖、全量透明</li>
+      </ul>
+      <button class="btn btn-secondary" id="btn-open-oa">
+        🌐 打开吉大官方 OA (WebVPN)
+      </button>
     </div>
 
-    <!-- Starred Notices -->
-    <div class="section-title" style="margin-top: 14px; display: flex; justify-content: space-between; align-items: center;">
-      <span>⭐ 我的收藏 (<span id="starred-header-count">0</span>)</span>
-      <span style="font-size: 11px; color: #94a3b8;">最近收藏</span>
-    </div>
-    <div class="starred-list" id="starred-list">
-      <div class="empty-tip">暂无收藏的通知，点击列表右侧星标收藏</div>
+    <!-- Quick Campus Memory Indicator -->
+    <div class="quick-status-row">
+      <span>常驻校区记忆：<strong id="popupCampusName">南岭校区（工科）</strong></span>
+      <a href="../dashboard/index.html" target="_blank" class="link-switch">进入配置 →</a>
     </div>
 
     <!-- Footer -->
     <footer class="popup-footer">
-      <span>need_more_jlu v1.0.0</span>
-      <a href="../options/options.html" target="_blank">自定义壁纸与高级设置 →</a>
+      <span>need_more_jlu v2.0.0</span>
+      <a href="../options/options.html" target="_blank">更多选项 →</a>
     </footer>
   </div>
 

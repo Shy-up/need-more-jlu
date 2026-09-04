@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "need_more_jlu - 吉大校园网现代增强",
-  "version": "1.0.0",
-  "description": "自定义吉林大学校园网与OA通知界面：现代卡片流、深浅色及壁纸自定义、新旧已读追踪、学生专属分类、抽屉式秒开预览。",
+  "name": "need_more_jlu - 吉大自习仪表盘与校园网实用增强",
+  "version": "2.0.0",
+  "description": "吉大新一代自习直达仪表盘（微观楼层座舱图、连坐安全感指数、空间洁癖过滤）与官方 OA 极简渐进增强工具箱。",
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
@@ -37,21 +37,24 @@
         "*://vpn.jlu.edu.cn/https/*/defaultroot/PortalInformation!*"
       ],
       "css": [
-        "content/theme.css",
         "content/inject.css"
-      ],
-      "run_at": "document_start"
-    },
-    {
-      "matches": [
-        "*://oa.jlu.edu.cn/defaultroot/PortalInformation!*",
-        "*://vpn.jlu.edu.cn/https/*/defaultroot/PortalInformation!*"
       ],
       "js": [
         "content/drawer.js",
         "content/inject.js"
       ],
       "run_at": "document_end"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "dashboard/*",
+        "icons/*"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
     }
   ],
   "background": {
