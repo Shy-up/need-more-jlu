@@ -100,11 +100,12 @@
   position: fixed;
   top: 0;
   right: 0;
-  width: 780px;
-  max-width: 90vw;
+  width: 820px;
+  min-width: 460px;
+  max-width: 96vw;
   height: 100%;
   background: #ffffff;
-  box-shadow: -10px 0 35px rgba(0, 0, 0, 0.35);
+  box-shadow: -12px 0 40px rgba(0, 0, 0, 0.35);
   transform: translateX(100%);
   transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
   pointer-events: auto;
@@ -115,6 +116,56 @@
 
 #nmj-drawer.active {
   transform: translateX(0);
+}
+
+/* Draggable Resizer Handle on Left Edge */
+.nmj-drawer-resizer {
+  position: absolute;
+  top: 0;
+  left: -8px;
+  width: 16px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease;
+}
+
+.nmj-drawer-resizer:hover,
+body.nmj-is-resizing .nmj-drawer-resizer {
+  background: rgba(2, 132, 199, 0.15);
+}
+
+.resizer-handle-bar {
+  width: 4px;
+  height: 48px;
+  border-radius: 4px;
+  background-color: #94a3b8;
+  transition: background-color 0.2s, height 0.2s, box-shadow 0.2s;
+}
+
+.nmj-drawer-resizer:hover .resizer-handle-bar,
+body.nmj-is-resizing .resizer-handle-bar {
+  background-color: #0284c7;
+  height: 80px;
+  box-shadow: 0 0 10px rgba(2, 132, 199, 0.6);
+}
+
+body.nmj-is-resizing {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
+/* Tip in Drawer Header */
+.nmj-tip-drag {
+  font-size: 11px;
+  color: #64748b;
+  background: #f1f5f9;
+  padding: 3px 8px;
+  border-radius: 4px;
+  border: 1px dashed #cbd5e1;
 }
 
 /* Drawer Header */
@@ -185,6 +236,69 @@
 .nmj-btn-native-tab:hover {
   background: #f0f9ff;
 }
+
+/* Attachment Quick Bar in Drawer Header */
+.nmj-drawer-attachment-bar {
+  background: #f0fdf4;
+  border-bottom: 1px solid #bbf7d0;
+  padding: 8px 18px;
+  flex-shrink: 0;
+  box-shadow: inset 0 -1px 3px rgba(0, 0, 0, 0.03);
+}
+
+.nmj-att-header-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.nmj-att-badge {
+  font-size: 12px;
+  font-weight: 700;
+  color: #15803d;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.nmj-att-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.nmj-att-header-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  background: #ffffff;
+  border: 1px solid #86efac;
+  border-radius: 6px;
+  color: #166534;
+  font-size: 12.5px;
+  font-weight: 600;
+  text-decoration: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: all 0.15s ease;
+  max-width: 100%;
+}
+
+.nmj-att-header-btn:hover {
+  background: #16a34a;
+  border-color: #15803d;
+  color: #ffffff;
+  box-shadow: 0 3px 8px rgba(22, 163, 74, 0.25);
+  transform: translateY(-1px);
+}
+
+.nmj-att-btn-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 
 /* Drawer Frame Wrap */
 .nmj-drawer-frame-wrap {

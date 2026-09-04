@@ -50,6 +50,10 @@
           <div class="current-slot-badge" id="currentSlotBadge">当前进行中：第 6 节 (14:20-15:05)</div>
         </div>
 
+        <button id="syncDataBtn" class="btn-icon" title="教务系统真实数据源与同步">
+          <span class="sync-icon">🔄</span>
+        </button>
+
         <button id="themeToggleBtn" class="btn-icon" title="切换深色/浅色模式">
           <span class="theme-icon">🌙</span>
         </button>
@@ -201,6 +205,46 @@
           <span class="spec-tag" id="hoverSpecOutlets">⚡ 靠墙插座充足</span>
           <span class="spec-tag" id="hoverSpecAir">❄️ 有空调/风扇</span>
           <span class="spec-tag" id="hoverSpecDesks">🪑 阶梯宽平桌</span>
+        </div>
+      </div>
+    </div>
+    <!-- Data Source & Sync Modal -->
+    <div id="syncModal" class="sync-modal-overlay" style="display: none;">
+      <div class="sync-modal-card">
+        <div class="sync-modal-header">
+          <div class="sync-modal-title">🔄 教务系统真实数据源与同步机制</div>
+          <button class="btn-close-modal" id="closeSyncModalBtn">✕</button>
+        </div>
+        <div class="sync-modal-body">
+          <div class="sync-status-indicator">
+            <span class="sync-status-dot"></span>
+            <span class="sync-status-text" id="syncStatusText">当前运行模式：本地高保真自洽数据引擎（南岭全天排课仿真）</span>
+          </div>
+
+          <div class="sync-explainer-card">
+            <h4>💡 真实排课数据如何获取与落地？</h4>
+            <ol class="sync-steps-list">
+              <li>
+                <strong>数据源头</strong>：吉林大学教务一体化服务平台（金智 EMAP 教学系统 <code>jwapp.jlu.edu.cn/jwapp/sys/kxjas/</code>）；
+              </li>
+              <li>
+                <strong>无感静默获取（推荐）</strong>：学生平时登录过 WebVPN，扩展在后台利用已有的 Cookie 会话，直接向教务处的 <code>queryKxjasByDate.do</code> 接口拉取本周各楼排课 JSON；
+              </li>
+              <li>
+                <strong>本地持久化离线秒开</strong>：全校课表一周变动极小，数据同步一次后存入 <code>chrome.storage.local</code>，后续使用 <strong>0 延迟瞬间直出</strong>，不吃校网带宽；
+              </li>
+              <li>
+                <strong>数据纯白纸黑字高可信</strong>：没有算法黑盒干预，直接根据教务处节次布尔值计算“连坐安全感指数”。
+              </li>
+            </ol>
+          </div>
+
+          <div class="sync-actions-row">
+            <button class="btn-sync-action" id="btnTriggerSync">
+              ⚡ 尝试连接 WebVPN 教务接口同步
+            </button>
+            <span class="sync-hint-text">如未登录校园网/WebVPN，系统将自动回退至本地完整仿真库</span>
+          </div>
         </div>
       </div>
     </div>

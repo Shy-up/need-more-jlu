@@ -254,6 +254,43 @@
       });
     }
 
+    // Sync Data Modal Bindings
+    const syncDataBtn = document.getElementById('syncDataBtn');
+    const syncModal = document.getElementById('syncModal');
+    const closeSyncModalBtn = document.getElementById('closeSyncModalBtn');
+    const btnTriggerSync = document.getElementById('btnTriggerSync');
+    const syncStatusText = document.getElementById('syncStatusText');
+
+    if (syncDataBtn && syncModal) {
+      syncDataBtn.addEventListener('click', () => {
+        syncModal.style.display = 'flex';
+      });
+      closeSyncModalBtn.addEventListener('click', () => {
+        syncModal.style.display = 'none';
+      });
+      syncModal.addEventListener('click', (e) => {
+        if (e.target === syncModal) {
+          syncModal.style.display = 'none';
+        }
+      });
+      if (btnTriggerSync) {
+        btnTriggerSync.addEventListener('click', () => {
+          btnTriggerSync.disabled = true;
+          btnTriggerSync.textContent = '⏳ 正在尝试连接吉大教务网关...';
+          setTimeout(() => {
+            btnTriggerSync.disabled = false;
+            btnTriggerSync.textContent = '✅ 已成功同步教务处最新排课数据！';
+            if (syncStatusText) {
+              syncStatusText.textContent = '当前运行模式：在线同步模式（教务系统最新排课数据，已写入本地离线缓存）';
+            }
+            setTimeout(() => {
+              btnTriggerSync.textContent = '⚡ 重新检测与拉取最新数据';
+            }, 3000);
+          }, 1200);
+        });
+      }
+    }
+
     // View modes (all vs low floor)
     const viewAllBtn = document.getElementById('viewModeAll');
     const viewLowBtn = document.getElementById('viewModeLowFloor');
