@@ -1136,11 +1136,11 @@ body {
 }
 
 /* ==========================================================================
-   Interactive Hover / Click Detail Card
+   Room Hover Tooltip Card (Theme Responsive & Segmented Slots)
    ========================================================================== */
 .room-hover-card {
   position: absolute;
-  width: 320px;
+  width: 330px;
   background: rgba(15, 23, 42, 0.95);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
@@ -1150,6 +1150,29 @@ body {
   z-index: 1000;
   pointer-events: none;
   animation: card-pop 0.18s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* Light Theme Adaptation for Hover Card */
+body.theme-light .room-hover-card {
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(0, 71, 157, 0.28);
+  box-shadow: 0 14px 36px rgba(0, 59, 122, 0.16), 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+body.theme-light .card-room-title {
+  color: #0f172a;
+}
+
+body.theme-light .card-schedule-summary {
+  color: #334155;
+}
+
+body.theme-light .timeline-title {
+  color: #64748b;
+}
+
+body.theme-light .timeline-bar {
+  background: #e2e8f0;
 }
 
 @keyframes card-pop {
@@ -1211,7 +1234,7 @@ body {
   color: #f87171;
 }
 
-/* Timeline Hot Bar */
+/* Timeline Hot Bar with Morning / Afternoon / Evening Segments */
 .card-timeline-box {
   display: flex;
   flex-direction: column;
@@ -1225,24 +1248,49 @@ body {
 }
 
 .timeline-bar {
-  display: grid;
-  grid-template-columns: repeat(12, 1fr);
+  display: flex;
+  align-items: stretch;
   gap: 3px;
-  height: 24px;
+  height: 26px;
   background: rgba(0, 0, 0, 0.3);
-  padding: 2px;
-  border-radius: 4px;
+  padding: 3px;
+  border-radius: 6px;
 }
 
 .timeline-slot-dot {
-  border-radius: 2px;
+  flex: 1;
+  border-radius: 3px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 9px;
+  font-size: 10px;
   font-family: 'JetBrains Mono', monospace;
   font-weight: 700;
   color: #0b0f17;
+  transition: transform 0.15s ease;
+}
+
+/* Isolate every 4 slots (after slot 4 and slot 8) to separate Morning, Afternoon, Evening */
+.timeline-slot-dot:nth-child(4),
+.timeline-slot-dot:nth-child(8) {
+  margin-right: 9px;
+  position: relative;
+}
+
+.timeline-slot-dot:nth-child(4)::after,
+.timeline-slot-dot:nth-child(8)::after {
+  content: '';
+  position: absolute;
+  right: -5px;
+  top: 3px;
+  bottom: 3px;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+body.theme-light .timeline-slot-dot:nth-child(4)::after,
+body.theme-light .timeline-slot-dot:nth-child(8)::after {
+  background: rgba(0, 0, 0, 0.15);
 }
 
 .timeline-slot-dot.free {
@@ -1251,7 +1299,7 @@ body {
 
 .timeline-slot-dot.busy {
   background: var(--color-busy);
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(255, 255, 255, 0.85);
 }
 
 .timeline-labels {

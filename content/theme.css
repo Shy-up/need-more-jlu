@@ -73,6 +73,28 @@
   --nmj-shadow-lg: 0 16px 40px -4px rgba(0, 0, 0, 0.7);
 }
 
+/* 🌌 Dashboard Theme (Native Need-More-JLU Dark Space) */
+[data-nmj-theme="dashboard"] {
+  --nmj-bg: #0b0f17;
+  --nmj-bg-gradient: radial-gradient(circle at 10% 20%, rgba(56, 189, 248, 0.08) 0%, transparent 40%),
+                     radial-gradient(circle at 90% 80%, rgba(139, 92, 246, 0.08) 0%, transparent 40%);
+  --nmj-surface: rgba(18, 26, 43, 0.88);
+  --nmj-surface-solid: #131b2e;
+  --nmj-surface-elevated: #172138;
+  --nmj-surface-hover: #202d4b;
+  --nmj-border: rgba(255, 255, 255, 0.08);
+  --nmj-border-hover: rgba(56, 189, 248, 0.4);
+  --nmj-text-primary: #f1f5f9;
+  --nmj-text-secondary: #94a3b8;
+  --nmj-text-muted: #64748b;
+  --nmj-text-light: #475569;
+  
+  --nmj-primary: #38bdf8;
+  --nmj-primary-hover: #0284c7;
+  --nmj-accent: #38bdf8;
+  --nmj-accent-light: rgba(56, 189, 248, 0.15);
+}
+
 /* 📜 Warm Paper (Sepia / Eye Comfort) */
 [data-nmj-theme="sepia"] {
   --nmj-bg: #f5efe6;

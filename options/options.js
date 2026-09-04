@@ -6,16 +6,20 @@
 document.addEventListener('DOMContentLoaded', () => {
   const themeSelect = document.getElementById('theme-select');
   const wallpaperInputGroup = document.getElementById('wallpaper-input-group');
+  const dashboardContainer = document.getElementById('dashboard-wallpaper-container');
   const localContainer = document.getElementById('local-wallpaper-container');
   const urlContainer = document.getElementById('url-wallpaper-container');
   const wallpaperUrlInput = document.getElementById('wallpaper-url');
   const localFileInput = document.getElementById('local-wallpaper-file');
   const uploadDropzone = document.getElementById('upload-dropzone');
+  const btnApplyDashboardBg = document.getElementById('btn-apply-dashboard-bg');
   const previewBox = document.getElementById('wallpaper-preview-box');
   const previewImg = document.getElementById('wallpaper-preview-img');
   const fileInfoSpan = document.getElementById('wallpaper-file-info');
   const btnRemoveWallpaper = document.getElementById('btn-remove-wallpaper');
   const sourceRadios = document.querySelectorAll('input[name="wallpaper-source"]');
+
+  const DASHBOARD_BG_DATA = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080"><defs><radialGradient id="g1" cx="10%" cy="20%" r="50%"><stop offset="0%" stop-color="%2338bdf8" stop-opacity="0.10"/><stop offset="100%" stop-color="%230b0f17" stop-opacity="0"/></radialGradient><radialGradient id="g2" cx="90%" cy="80%" r="50%"><stop offset="0%" stop-color="%238b5cf6" stop-opacity="0.10"/><stop offset="100%" stop-color="%230b0f17" stop-opacity="0"/></radialGradient></defs><rect width="100%" height="100%" fill="%230b0f17"/><rect width="100%" height="100%" fill="url(%23g1)"/><rect width="100%" height="100%" fill="url(%23g2)"/></svg>';
 
   const accentColorInput = document.getElementById('accent-color');
   const accentHexSpan = document.getElementById('accent-hex');
@@ -35,7 +39,10 @@ document.addEventListener('DOMContentLoaded', () => {
     currentWallpaperData = settings.customWallpaper || '';
 
     if (currentWallpaperData) {
-      if (currentWallpaperData.startsWith('data:')) {
+      if (currentWallpaperData === DASHBOARD_BG_DATA || currentWallpaperData.includes('radialGradient') || currentWallpaperData.includes('0b0f17')) {
+        setSourceTab('dashboard');
+        showPreview(currentWallpaperData, '插件自带仪表盘背景');
+      } else if (currentWallpaperData.startsWith('data:')) {
         setSourceTab('local');
         showPreview(currentWallpaperData, '本地上传图片');
       } else {
@@ -44,7 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
         showPreview(currentWallpaperData, '网络图片链接');
       }
     } else {
-      setSourceTab('local');
+      setSourceTab('dashboard');
     }
 
     accentColorInput.value = settings.customAccent || '#0284c7';
@@ -55,7 +62,14 @@ document.addEventListener('DOMContentLoaded', () => {
     updateWallpaperVisibility();
   });
 
-  themeSelect.addEventListener('change', updateWallpaperVisibility);
+  themeSelect.addEventListener('change', () => {
+    if (themeSelect.value === 'dashboard') {
+      currentWallpaperData = DASHBOARD_BG_DATA;
+      setSourceTab('dashboard');
+      showPreview(currentWallpaperData, '插件自带仪表盘背景');
+    }
+    updateWallpaperVisibility();
+  });
 
   function updateWallpaperVisibility() {
     // Keep wallpaper configuration visible and responsive
@@ -71,13 +85,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function setSourceTab(source) {
     sourceRadios.forEach(r => r.checked = (r.value === source));
-    if (source === 'local') {
-      localContainer.style.display = 'block';
-      urlContainer.style.display = 'none';
-    } else {
-      localContainer.style.display = 'none';
-      urlContainer.style.display = 'block';
-    }
+    if (dashboardContainer) dashboardContainer.style.display = (source === 'dashboard') ? 'block' : 'none';
+    if (localContainer) localContainer.style.display = (source === 'local') ? 'block' : 'none';
+    if (urlContainer) urlContainer.style.display = (source === 'url') ? 'block' : 'none';
+  }
+
+  if (btnApplyDashboardBg) {
+    btnApplyDashboardBg.addEventListener('click', () => {
+      currentWallpaperData = DASHBOARD_BG_DATA;
+      showPreview(currentWallpaperData, '插件自带仪表盘背景');
+      themeSelect.value = 'custom';
+      btnApplyDashboardBg.textContent = '✓ 已设为自定义背景';
+      setTimeout(() => {
+        btnApplyDashboardBg.textContent = '设为当前壁纸';
+      }, 1500);
+    });
   }
 
   // Dropzone click -> trigger file picker
