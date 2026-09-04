@@ -183,15 +183,33 @@
           <div class="barrier-icon-large">🔒</div>
           <h2 class="barrier-title" id="barrierTitle">未连接至吉大教务服务</h2>
           <p class="barrier-subtitle" id="barrierSubtitle">
-            无法拉取教务实时排课。如在校外请登录吉大 WebVPN；如在校内请确认已登录吉大校园网认证。
+            无法拉取教务实时排课。
           </p>
+
+          <!-- Embedded WeChat QR Fast Login Box -->
+          <div class="barrier-qr-container" id="barrierQrContainer" style="display: none;">
+            <div class="qr-card-header">
+              <span class="qr-card-badge">⚡ 智慧吉大 · 微信一键扫码登录</span>
+            </div>
+            <div class="qr-frame-wrapper">
+              <iframe id="qrLoginIframe" class="qr-login-iframe" src="about:blank" title="吉大统一身份认证扫码登录"></iframe>
+            </div>
+            <div class="qr-status-indicator" id="qrStatusIndicator">
+              <span class="qr-status-dot pulse"></span>
+              <span class="qr-status-text" id="qrStatusText">等待微信扫码确认中... 扫码成功后将自动完成鉴权并刷新</span>
+            </div>
+          </div>
+
           <div class="barrier-actions-row">
-            <a href="https://vpn.jlu.edu.cn/https/48714f71342f7a336d582f7e2857373756c9770f46c0c2b0ff87560d5a42f1/jwapp/sys/kxjas/*default/index.do?THEME=purple&EMAP_LANG=en#/kxjscx" target="_blank" rel="noopener noreferrer" class="btn-login-webvpn"
+            <button class="btn-login-webvpn" id="btnToggleEmbeddedQr">
+              📱 展开微信扫码登录 (免跳转)
+            </button>
+            <a href="https://vpn.jlu.edu.cn/https/48714f71342f7a336d582f7e2857373756c9770f46c0c2b0ff87560d5a42f1/jwapp/sys/kxjas/*default/index.do?THEME=purple&EMAP_LANG=en#/kxjscx" target="_blank" rel="noopener noreferrer" class="btn-external-link"
               id="btnLoginWebVPN">
-              🔗 进入吉大教务空闲教室系统激活会话 ↗
+              🔗 新窗口打开教务系统 ↗
             </a>
             <button class="btn-retry-real-fetch" id="btnRetryRealFetch">
-              重新获取排课
+              🔄 重新获取排课
             </button>
           </div>
           <div class="barrier-diagnostics-box">

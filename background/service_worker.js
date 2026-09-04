@@ -23,9 +23,18 @@ chrome.runtime.onInstalled.addListener(() => {
 // Real Data API Bridge for Free Classrooms (cxkxjs.do)
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.type === 'CHECK_AUTH_STATUS') {
-    chrome.cookies.get({ url: 'https://vpn.jlu.edu.cn', name: 'wengine_vpn_ticketvpn_jlu_edu_cn' }, (cookie) => {
-      const isLoggedIn = Boolean(cookie && cookie.value);
-      sendResponse({ isLoggedIn, ticket: isLoggedIn ? cookie.value : null });
+    chrome.cookies.get({ url: 'https://vpn.jlu.edu.cn', name: 'wengine_vpn_ticketvpn_jlu_edu_cn' }, (vpnCookie) => {
+      chrome.cookies.get({ url: 'https://vpn.jlu.edu.cn', name: 'CASTGC' }, (casCookie) => {
+        const hasVpnTicket = Boolean(vpnCookie && vpnCookie.value);
+        const hasCasTgc = Boolean(casCookie && casCookie.value);
+        const isLoggedIn = hasVpnTicket || hasCasTgc;
+        sendResponse({
+          isLoggedIn,
+          hasVpnTicket,
+          hasCasTgc,
+          ticket: hasVpnTicket ? vpnCookie.value : null
+        });
+      });
     });
     return true; // async sendResponse
   }

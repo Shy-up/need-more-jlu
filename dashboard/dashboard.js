@@ -797,6 +797,22 @@
         loadParallelTimelineData();
       });
     }
+
+    const btnToggleQr = document.getElementById('btnToggleEmbeddedQr');
+    if (btnToggleQr) {
+      btnToggleQr.addEventListener('click', () => {
+        const qrContainer = document.getElementById('barrierQrContainer');
+        if (qrContainer) {
+          const isHidden = (qrContainer.style.display === 'none');
+          if (isHidden) {
+            startEmbeddedQrLoginFlow();
+          } else {
+            qrContainer.style.display = 'none';
+            stopQrLoginPolling();
+          }
+        }
+      });
+    }
   }
 
   function startClock() {
@@ -2020,6 +2036,8 @@
   }
 
   // Barrier UI & Status State
+  let qrPollTimer = null;
+
   function showHardFailBarrier(errorResult) {
     hideContentArea();
     hideLoadingPanel();
@@ -2033,18 +2051,23 @@
     const titleEl = document.getElementById('barrierTitle');
     const subtitleEl = document.getElementById('barrierSubtitle');
     const diagTextEl = document.getElementById('barrierDiagnosticsText');
+    const qrContainer = document.getElementById('barrierQrContainer');
 
     if (errorResult?.error === 'UNAUTHENTICATED') {
-      titleEl.textContent = '🔒 WebVPN 会话未激活或已过期';
+      titleEl.textContent = '🔒 吉大教务未登录认证';
       subtitleEl.innerHTML = `
-        仪表盘严守 <strong>100% 真实教务数据</strong> 原则，绝不使用任何伪造假数据误导自习。<br>
-        请先点击下方按钮登录吉大 WebVPN，登录成功后点击“重新拉取”。
+        仪表盘严守 <strong>100% 真实教务数据</strong> 原则。<br>
+        微信扫码登录已就绪：请直接扫描下方二维码，认证后<strong>自动完成登录并刷新</strong>，立即可用。
       `;
+      // Auto open embedded QR code on unauthenticated
+      startEmbeddedQrLoginFlow();
     } else {
       titleEl.textContent = '⚠️ 无法获取吉大教务处实时排课数据';
       subtitleEl.innerHTML = `
         接口通信失败或校园网连接中断。<strong>系统已坚决阻断界面渲染</strong>，以防虚假数据误导自习决策。
       `;
+      if (qrContainer) qrContainer.style.display = 'none';
+      stopQrLoginPolling();
     }
 
     if (diagTextEl) {
@@ -2059,6 +2082,59 @@
         targetBuildings: '逸夫楼(65), 一教(73), 二教(82)'
       }, null, 2);
     }
+  }
+
+  function startEmbeddedQrLoginFlow() {
+    const qrContainer = document.getElementById('barrierQrContainer');
+    const iframe = document.getElementById('qrLoginIframe');
+    const statusText = document.getElementById('qrStatusText');
+    if (!qrContainer || !iframe) return;
+
+    qrContainer.style.display = 'flex';
+    const casLoginUrl = 'https://vpn.jlu.edu.cn/login?cas_login=true';
+    
+    // Only update src if empty or not matching
+    if (!iframe.src || iframe.src === 'about:blank' || !iframe.src.includes('vpn.jlu.edu.cn')) {
+      iframe.src = casLoginUrl;
+    }
+
+    if (statusText) {
+      statusText.textContent = '正在加载统一认证微信登录二维码... 扫码后将自动完成登录';
+    }
+
+    // Start auto polling for login completion
+    stopQrLoginPolling();
+    qrPollTimer = setInterval(checkLoginAndAutoReload, 2000);
+  }
+
+  function stopQrLoginPolling() {
+    if (qrPollTimer) {
+      clearInterval(qrPollTimer);
+      qrPollTimer = null;
+    }
+  }
+
+  async function checkLoginAndAutoReload() {
+    if (typeof chrome === 'undefined' || !chrome.runtime || !chrome.runtime.sendMessage) {
+      return;
+    }
+
+    chrome.runtime.sendMessage({ type: 'CHECK_AUTH_STATUS' }, async (res) => {
+      if (res && res.isLoggedIn) {
+        // Ticket detected!
+        stopQrLoginPolling();
+        const statusText = document.getElementById('qrStatusText');
+        if (statusText) {
+          statusText.innerHTML = '🎉 <strong>微信扫码认证成功！正在激活教务会话并刷新数据...</strong>';
+        }
+
+        // Trigger reload with smooth transition
+        setTimeout(() => {
+          hideBarrierPanel();
+          loadParallelTimelineData();
+        }, 1200);
+      }
+    });
   }
 
   function hideBarrierPanel() {
