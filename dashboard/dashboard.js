@@ -948,9 +948,21 @@
           body: params.toString()
         });
 
-        if (!resp.ok) return { slot: slotNum, rows: [] };
+        if (!resp.ok) {
+          if (resp.status === 401) {
+            throw new Error('UNAUTHENTICATED');
+          }
+          return { slot: slotNum, rows: [] };
+        }
         const text = await resp.text();
-        if (text.includes('<!DOCTYPE html>') || text.includes('login')) {
+        if (
+          text.includes('<!DOCTYPE') || 
+          text.includes('<html') || 
+          text.includes('Not login!') || 
+          text.includes('401.png') || 
+          text.includes('统一身份认证') || 
+          text.includes('login')
+        ) {
           throw new Error('UNAUTHENTICATED');
         }
         const json = JSON.parse(text);

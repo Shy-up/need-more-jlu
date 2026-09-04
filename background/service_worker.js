@@ -164,6 +164,14 @@ async function handleFetchClassrooms(payload = {}) {
       });
 
       if (!resp.ok) {
+        if (resp.status === 401) {
+          lastError = {
+            success: false,
+            error: 'UNAUTHENTICATED',
+            message: '教务系统提示未登录 (HTTP 401 Not login!)，请登录 WebVPN 或吉大统一身份认证'
+          };
+          continue;
+        }
         lastError = {
           success: false,
           error: 'HTTP_' + resp.status,
@@ -173,12 +181,19 @@ async function handleFetchClassrooms(payload = {}) {
       }
 
       const text = await resp.text();
-      // Check if redirected to login page (HTML)
-      if (text.includes('<!DOCTYPE html>') || text.includes('<html') || text.includes('统一身份认证') || text.includes('login')) {
+      // Check if redirected to login/401 page (HTML / Not login)
+      if (
+        text.includes('<!DOCTYPE') || 
+        text.includes('<html') || 
+        text.includes('Not login!') || 
+        text.includes('401.png') || 
+        text.includes('统一身份认证') || 
+        text.includes('login')
+      ) {
         lastError = {
           success: false,
           error: 'UNAUTHENTICATED',
-          message: 'WebVPN 未登录或校园网会话过期，请先登录 WebVPN 或连接吉大校园网'
+          message: 'WebVPN 未登录或校园网会话过期 (Not login!)，请先登录 WebVPN 或连接吉大校园网'
         };
         continue;
       }
