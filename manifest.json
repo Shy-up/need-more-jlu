@@ -24,11 +24,14 @@
   "permissions": [
     "storage",
     "unlimitedStorage",
-    "activeTab"
+    "activeTab",
+    "cookies"
   ],
   "host_permissions": [
     "*://oa.jlu.edu.cn/*",
-    "*://vpn.jlu.edu.cn/*"
+    "*://vpn.jlu.edu.cn/*",
+    "*://iedu.jlu.edu.cn/*",
+    "*://*.jlu.edu.cn/*"
   ],
   "content_scripts": [
     {

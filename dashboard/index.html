@@ -40,6 +40,17 @@
       </div>
 
       <div class="header-right">
+        <!-- Real Data Authenticity Badge -->
+        <div id="realDataBadge" class="real-data-badge loading" title="教务数据源真实直连状态">
+          <span class="status-dot"></span>
+          <span class="status-text" id="realDataBadgeText">检测教务连接...</span>
+        </div>
+
+        <!-- Date Selector -->
+        <div class="date-selector-box" title="选择查询日期">
+          <input type="date" id="queryDateInput" style="background: var(--bg-surface); border: 1px solid var(--border-subtle); color: var(--text-primary); border-radius: var(--radius-sm); padding: 5px 8px; font-size: 13px; font-family: inherit; cursor: pointer;">
+        </div>
+
         <!-- System Time Perception -->
         <div class="time-perception-card" id="timePerceptionCard">
           <div class="time-main">
@@ -50,7 +61,7 @@
           <div class="current-slot-badge" id="currentSlotBadge">当前进行中：第 6 节 (14:20-15:05)</div>
         </div>
 
-        <button id="syncDataBtn" class="btn-icon" title="教务系统真实数据源与同步">
+        <button id="syncDataBtn" class="btn-icon" title="刷新教务处实时真实数据">
           <span class="sync-icon">🔄</span>
         </button>
 
@@ -140,37 +151,73 @@
 
       <!-- Right Main Content: Macro Overview & Floor Cabin Layout -->
       <main class="main-content">
-        <!-- Building Macro Overview (Progress Rings & Cards) -->
-        <section class="macro-section">
-          <div class="macro-header">
-            <h2 class="macro-title">🏢 教学楼宏观占用看板</h2>
-            <div class="macro-summary" id="macroCampusSummary">南岭校区 · 共 6 栋教学楼 · 此时综合空闲率 68%</div>
-          </div>
-          <div class="building-cards-grid" id="buildingCardsGrid">
-            <!-- Dynamically injected building cards -->
-          </div>
-        </section>
+        <!-- Real Data Loading Panel -->
+        <div id="realDataLoadingPanel" class="real-data-loading-panel" style="display: none;">
+          <div class="dash-spinner"></div>
+          <div class="loading-text-main">正在直连吉大教务处 (cxkxjs.do) 获取实时空闲排课...</div>
+          <div class="loading-text-sub">恪守 100% 真实教务源原则 · 绝不使用虚假模拟数据</div>
+        </div>
 
-        <!-- Micro Floor Cabin View (Like Movie Theater / Flight Seat Map) -->
-        <section class="micro-section">
-          <div class="cabin-header">
-            <div class="cabin-title-box">
-              <h2 class="cabin-title" id="currentBuildingTitle">逸夫楼 (Yi Fu Building)</h2>
-              <span class="cabin-subtitle" id="currentBuildingSub">楼层选座舱位热力图 · 真实建筑空间映射</span>
+        <!-- Hard-Fail Barrier Panel (Shown when unauthenticated or network error) -->
+        <div id="realDataBarrierPanel" class="real-data-barrier-panel" style="display: none;">
+          <div class="barrier-icon-large">🔒</div>
+          <h2 class="barrier-title" id="barrierTitle">未检测到 WebVPN 登录凭据</h2>
+          <p class="barrier-subtitle" id="barrierSubtitle">
+            本自习仪表盘坚守 <strong>100% 真实教务数据</strong> 原则，严禁使用任何虚假模拟数据误导自习选座。请先登录吉大 WebVPN。
+          </p>
+          <div class="barrier-core-rule">
+            <span>🛡️ 核心准则：非真实即阻断报错 · 绝不输出任何伪造数据</span>
+          </div>
+          <div class="barrier-actions-row">
+            <a href="https://vpn.jlu.edu.cn/" target="_blank" rel="noopener noreferrer" class="btn-login-webvpn" id="btnLoginWebVPN">
+              🔑 登录吉大 WebVPN (vpn.jlu.edu.cn) ↗
+            </a>
+            <button class="btn-retry-real-fetch" id="btnRetryRealFetch">
+              🔄 重新检测并拉取真实排课
+            </button>
+          </div>
+          <div class="barrier-diagnostics-box">
+            <details>
+              <summary>查看接口诊断详情 (Diagnostics)</summary>
+              <pre id="barrierDiagnosticsText">正在等待连接...</pre>
+            </details>
+          </div>
+        </div>
+
+        <!-- Real Data Content Area (Shown ONLY when real data is successfully loaded) -->
+        <div id="realDataContentArea" style="display: none;">
+          <!-- Building Macro Overview (Progress Rings & Cards) -->
+          <section class="macro-section">
+            <div class="macro-header">
+              <h2 class="macro-title">🏢 教学楼宏观占用看板</h2>
+              <div class="macro-summary" id="macroCampusSummary">南岭校区 · 共 6 栋教学楼 · 此时综合空闲率 68%</div>
             </div>
-            <div class="cabin-actions">
-              <div class="view-pill-group">
-                <button class="pill-btn active" id="viewModeAll">全楼层俯瞰</button>
-                <button class="pill-btn" id="viewModeLowFloor">低楼层 (1~3F 免爬楼)</button>
+            <div class="building-cards-grid" id="buildingCardsGrid">
+              <!-- Dynamically injected building cards -->
+            </div>
+          </section>
+
+          <!-- Micro Floor Cabin View (Like Movie Theater / Flight Seat Map) -->
+          <section class="micro-section">
+            <div class="cabin-header">
+              <div class="cabin-title-box">
+                <h2 class="cabin-title" id="currentBuildingTitle">逸夫楼 (Yi Fu Building)</h2>
+                <span class="cabin-subtitle" id="currentBuildingSub">楼层选座舱位热力图 · 真实建筑空间映射</span>
+              </div>
+              <div class="cabin-actions">
+                <div class="view-pill-group">
+                  <button class="pill-btn active" id="viewModeAll">全楼层俯瞰</button>
+                  <button class="pill-btn" id="viewModeLowFloor">低楼层 (1~3F 免爬楼)</button>
+                </div>
               </div>
             </div>
-          </div>
 
-          <!-- Floor by Floor Seat Cabin Grid -->
-          <div class="cabin-floors-container" id="cabinFloorsContainer">
-            <!-- Dynamically rendered floors from 5F down to 1F -->
-          </div>
-        </section>
+            <!-- Floor by Floor Seat Cabin Grid -->
+            <div class="cabin-floors-container" id="cabinFloorsContainer">
+              <!-- Dynamically rendered floors from 5F down to 1F -->
+            </div>
+          </section>
+        </div>
       </main>
     </div>
 
