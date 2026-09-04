@@ -55,7 +55,9 @@
     isDarkTheme: false,
     customWallpaper: '',
     uiOpacity: 0.85,
-    wallpaperOpacity: 0.90
+    wallpaperOpacity: 0.90,
+    fetchStatus: 'IDLE', // 'IDLE' | 'LOADING' | 'SUCCESS' | 'UNAUTHENTICATED' | 'NETWORK_ERROR'
+    isDataLoaded: false
   };
 
   // Structured room repository grouped by buildingId: { [buildingId]: [] }
@@ -846,6 +848,7 @@
   // ==========================================================================
 
   async function loadParallelTimelineData() {
+    state.fetchStatus = 'LOADING';
     updateBadgeState('loading', '正在获取排课数据...');
     showLoadingPanel(true);
     hideBarrierPanel();
@@ -886,9 +889,14 @@
 
     // Hard-Fail Check
     if (!result || !result.success || !Array.isArray(result.slotsData)) {
+      state.fetchStatus = result?.error === 'UNAUTHENTICATED' ? 'UNAUTHENTICATED' : 'NETWORK_ERROR';
+      state.isDataLoaded = false;
       showHardFailBarrier(result);
       return;
     }
+
+    state.fetchStatus = 'SUCCESS';
+    state.isDataLoaded = true;
 
     // Merge 12 slices into real building maps
     mergeAndProcessTimeline(result.slotsData);
@@ -1518,13 +1526,114 @@
     }
 
     if (visibleRooms.length === 0) {
+      // 1. Situation 2: 教务系统无法连接 (无登录/会话过期/网络中断)
+      if (state.fetchStatus === 'UNAUTHENTICATED' || state.fetchStatus === 'NETWORK_ERROR' || !state.isDataLoaded) {
+        const isAuth = state.fetchStatus === 'UNAUTHENTICATED';
+        container.innerHTML = `
+          <div class="cabin-empty-card error-state">
+            <div class="empty-state-icon">${isAuth ? '🔒' : '⚠️'}</div>
+            <div class="empty-state-title">${isAuth ? '教务系统未连接 · WebVPN 未登录' : '教务接口通信失败 · 未能获取排课'}</div>
+            <div class="empty-state-desc">
+              ${isAuth 
+                ? '当前 WebVPN 会话未激活或已过期。仪表盘严守 100% 官方真实排课原则，不使用伪造数据。请先登录吉大 WebVPN 后重新拉取。' 
+                : '与吉大教务处排课服务 (cxkxjs.do) 通信失败或校园网络中断，未能拉取排课数据。'}
+            </div>
+            <div class="empty-state-actions">
+              ${isAuth ? `<a href="https://vpn.jlu.edu.cn" target="_blank" class="btn-empty-action primary">🔗 登录吉大 WebVPN</a>` : ''}
+              <button class="btn-empty-action secondary" id="btnRetryEmptyFetch">🔄 重新获取排课数据</button>
+            </div>
+          </div>
+        `;
+        const retryBtn = container.querySelector('#btnRetryEmptyFetch');
+        if (retryBtn) retryBtn.addEventListener('click', () => loadParallelTimelineData());
+        return;
+      }
+
+      // 2. Situation 1: 筛选条件导致没有
+      if (allRooms.length > 0) {
+        container.innerHTML = `
+          <div class="cabin-empty-card filter-state">
+            <div class="empty-state-icon">⚙️</div>
+            <div class="empty-state-title">分类筛选条件已过滤该楼栋全部教室</div>
+            <div class="empty-state-desc">
+              【${currentBldg.name}】实际排课中有 <strong>${allRooms.length}</strong> 间教室，但已被当前的分类筛选条件全部排除。
+            </div>
+            <div class="empty-state-details">
+              当前筛选设置：小教室 (${state.roomTypes.small ? '显示' : '隐藏'}) · 中教室 (${state.roomTypes.medium ? '显示' : '隐藏'}) · 大教室 (${state.roomTypes.large ? '显示' : '隐藏'}) · 特殊教室 (${state.roomTypes.special ? '显示' : '隐藏'})
+            </div>
+            <div class="empty-state-actions">
+              <button class="btn-empty-action primary" id="btnResetRoomTypes">🔄 重置分类筛选 (显示全部教室)</button>
+            </div>
+          </div>
+        `;
+        const resetBtn = container.querySelector('#btnResetRoomTypes');
+        if (resetBtn) {
+          resetBtn.addEventListener('click', () => {
+            state.roomTypes = { small: true, medium: true, large: true, special: true };
+            ['typeSmallToggle', 'typeMediumToggle', 'typeLargeToggle', 'typeSpecialToggle'].forEach(id => {
+              const el = document.getElementById(id);
+              if (el) el.checked = true;
+            });
+            renderFloorCabinMap();
+          });
+        }
+        return;
+      }
+
+      // 3. Situation 3: 真的完全没空闲
+      const otherBuildingsWithRooms = currentBuildings.filter(b => {
+        if (b.id === currentBldg.id) return false;
+        const bRooms = buildingRoomsMap[b.id] || [];
+        return bRooms.length > 0;
+      });
+
+      let otherBldgsHtml = '';
+      if (otherBuildingsWithRooms.length > 0) {
+        otherBldgsHtml = `
+          <div class="empty-switch-section">
+            <div class="empty-switch-title">👉 推荐查看同校区其他有空闲座位的教学楼：</div>
+            <div class="empty-switch-btns">
+              ${otherBuildingsWithRooms.map(b => {
+                const count = (buildingRoomsMap[b.id] || []).length;
+                return `<button class="btn-switch-bldg" data-bldg-id="${b.id}">🏢 切换至 ${b.shortName} (${count} 间可用)</button>`;
+              }).join('')}
+            </div>
+          </div>
+        `;
+      }
+
       container.innerHTML = `
-        <div style="text-align: center; padding: 60px 20px; color: var(--text-secondary);">
-          <div style="font-size: 36px; margin-bottom: 12px;">🔍</div>
-          <div style="font-size: 16px; font-weight: 700; color: var(--text-primary);">该楼栋此时段暂无空闲教室</div>
-          <div style="font-size: 13px; margin-top: 6px;">全天有课或教务系统未开放排课的教室已自动隐藏，请切换节次或查看其他楼栋。</div>
+        <div class="cabin-empty-card vacant-state">
+          <div class="empty-state-icon">🏢</div>
+          <div class="empty-state-title">该楼栋在所选日期全天确实无空闲教室</div>
+          <div class="empty-state-desc">
+            教务处排课数据已成功同步：【${currentBldg.name}】在 ${state.queryDate} 全天 12 节均排满课程或未开放排课，确实无可用空闲教室。
+          </div>
+          ${otherBldgsHtml}
+          <div class="empty-state-actions">
+            <button class="btn-empty-action secondary" id="btnSwitchQueryDateTomorrow">📅 查询明日排课数据</button>
+          </div>
         </div>
       `;
+
+      container.querySelectorAll('.btn-switch-bldg').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const targetId = btn.dataset.bldgId;
+          state.buildingId = targetId;
+          updateBuildingMacroCards();
+          renderFloorCabinMap();
+        });
+      });
+
+      const btnTomorrow = container.querySelector('#btnSwitchQueryDateTomorrow');
+      if (btnTomorrow) {
+        btnTomorrow.addEventListener('click', () => {
+          const d = new Date();
+          d.setDate(d.getDate() + 1);
+          const tomorrowStr = formatDate(d);
+          selectCalendarDate(tomorrowStr);
+        });
+      }
       return;
     }
 
