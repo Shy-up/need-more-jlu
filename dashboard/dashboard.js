@@ -759,9 +759,21 @@
     startClock();
     updateDateControls();
     initWallpaperAndTheme();
+    listenAuthMessages();
 
     // Trigger parallel full fetch
     loadParallelTimelineData();
+  }
+
+  function listenAuthMessages() {
+    if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
+      chrome.runtime.onMessage.addListener((msg) => {
+        if (msg && msg.type === 'AUTH_SUCCESS') {
+          console.log('[need_more_jlu] 收到认证成功推送:', msg);
+          handleAuthSuccessNotification();
+        }
+      });
+    }
   }
 
   // Header Elements & Clock
@@ -801,16 +813,7 @@
     const btnToggleQr = document.getElementById('btnToggleEmbeddedQr');
     if (btnToggleQr) {
       btnToggleQr.addEventListener('click', () => {
-        const qrContainer = document.getElementById('barrierQrContainer');
-        if (qrContainer) {
-          const isHidden = (qrContainer.style.display === 'none');
-          if (isHidden) {
-            startEmbeddedQrLoginFlow();
-          } else {
-            qrContainer.style.display = 'none';
-            stopQrLoginPolling();
-          }
-        }
+        startEmbeddedQrLoginFlow();
       });
     }
   }
@@ -2035,8 +2038,8 @@
     }
   }
 
-  // Barrier UI & Status State
   let qrPollTimer = null;
+  let loginAuthWindow = null;
 
   function showHardFailBarrier(errorResult) {
     hideContentArea();
@@ -2051,22 +2054,25 @@
     const titleEl = document.getElementById('barrierTitle');
     const subtitleEl = document.getElementById('barrierSubtitle');
     const diagTextEl = document.getElementById('barrierDiagnosticsText');
-    const qrContainer = document.getElementById('barrierQrContainer');
 
-    if (errorResult?.error === 'UNAUTHENTICATED') {
+    const isUnauth = (errorResult?.error === 'UNAUTHENTICATED');
+    const qrBtn = document.getElementById('btnToggleEmbeddedQr');
+    const retryBtn = document.getElementById('btnRetryRealFetch');
+
+    if (qrBtn) qrBtn.style.display = isUnauth ? 'inline-flex' : 'none';
+    if (retryBtn) retryBtn.style.display = isUnauth ? 'none' : 'inline-flex';
+
+    if (isUnauth) {
       titleEl.textContent = '🔒 吉大教务未登录认证';
       subtitleEl.innerHTML = `
         仪表盘严守 <strong>100% 真实教务数据</strong> 原则。<br>
-        微信扫码登录已就绪：请直接扫描下方二维码，认证后<strong>自动完成登录并刷新</strong>，立即可用。
+        微信扫码登录已就绪：点击下方按钮完成认证，扫码后<strong>本页面将全自动检测并刷新</strong>，立即可用。
       `;
-      // Auto open embedded QR code on unauthenticated
-      startEmbeddedQrLoginFlow();
     } else {
       titleEl.textContent = '⚠️ 无法获取吉大教务处实时排课数据';
       subtitleEl.innerHTML = `
         接口通信失败或校园网连接中断。<strong>系统已坚决阻断界面渲染</strong>，以防虚假数据误导自习决策。
       `;
-      if (qrContainer) qrContainer.style.display = 'none';
       stopQrLoginPolling();
     }
 
@@ -2084,32 +2090,68 @@
     }
   }
 
-  let qrFlowStartTime = 0;
+  function handleAuthSuccessNotification() {
+    stopQrLoginPolling();
+
+    if (loginAuthWindow && !loginAuthWindow.closed) {
+      try { loginAuthWindow.close(); } catch (e) {}
+    }
+
+    const statusText = document.getElementById('qrStatusText');
+    if (statusText) {
+      statusText.innerHTML = '🎉 <strong>微信扫码认证成功！正在同步教务排课并刷新...</strong>';
+    }
+
+    setTimeout(() => {
+      hideBarrierPanel();
+      loadParallelTimelineData();
+    }, 800);
+  }
 
   function startEmbeddedQrLoginFlow() {
-    const qrContainer = document.getElementById('barrierQrContainer');
-    const iframe = document.getElementById('qrLoginIframe');
+    const authUrl = 'https://vpn.jlu.edu.cn/login?cas_login=true';
     const statusText = document.getElementById('qrStatusText');
-    if (!qrContainer || !iframe) return;
+    const qrContainer = document.getElementById('barrierQrContainer');
 
-    qrContainer.style.display = 'flex';
-    const casLoginUrl = 'https://vpn.jlu.edu.cn/login?cas_login=true';
-    
-    // Only update src if empty or not matching
-    if (!iframe.src || iframe.src === 'about:blank' || !iframe.src.includes('vpn.jlu.edu.cn')) {
-      iframe.src = casLoginUrl;
-    }
-
+    if (qrContainer) qrContainer.style.display = 'flex';
     if (statusText) {
-      statusText.textContent = '请使用微信扫描下方二维码完成吉大统一身份认证... 扫码后自动刷新';
+      statusText.innerHTML = '<span class="qr-status-dot pulse"></span> 正在预设二维码模式并唤起微信认证...';
     }
 
-    // Record flow start timestamp to prevent existing stale cookies from triggering instant refresh
-    qrFlowStartTime = Date.now();
+    const openPopup = () => {
+      if (statusText) {
+        statusText.innerHTML = '<span class="qr-status-dot pulse"></span> 正在等待微信扫码确认... 扫码完成后将自动关闭并刷新仪表盘';
+      }
 
-    // Start auto polling for login completion after a short grace period (allows iframe to render QR code)
-    stopQrLoginPolling();
-    qrPollTimer = setInterval(checkLoginAndAutoReload, 3000);
+      // Open standard centered popup window without iframe frame-busting or CORS restrictions
+      const width = 520;
+      const height = 650;
+      const left = Math.max(0, Math.round(window.screenX + (window.outerWidth - width) / 2));
+      const top = Math.max(0, Math.round(window.screenY + (window.outerHeight - height) / 2));
+      
+      if (!loginAuthWindow || loginAuthWindow.closed) {
+        loginAuthWindow = window.open(
+          authUrl, 
+          'JLU_AUTH_WINDOW', 
+          `width=${width},height=${height},left=${left},top=${top},menubar=no,toolbar=no,location=no,status=no`
+        );
+      } else {
+        loginAuthWindow.focus();
+      }
+
+      // Start auto polling for login completion as fallback
+      stopQrLoginPolling();
+      qrPollTimer = setInterval(checkLoginAndAutoReload, 1500);
+    };
+
+    // Pre-set last_select_type=qrcode_login so official CAS directly shows WeChat QR code tab
+    if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+      chrome.runtime.sendMessage({ type: 'PREPARE_QR_LOGIN' }, () => {
+        openPopup();
+      });
+    } else {
+      openPopup();
+    }
   }
 
   function stopQrLoginPolling() {
@@ -2120,28 +2162,13 @@
   }
 
   async function checkLoginAndAutoReload() {
-    // Grace period: do not check within first 6 seconds of opening QR frame to let user scan
-    if (Date.now() - qrFlowStartTime < 6000) {
-      return;
-    }
-
     if (typeof chrome === 'undefined' || !chrome.runtime || !chrome.runtime.sendMessage) {
       return;
     }
 
     chrome.runtime.sendMessage({ type: 'CHECK_AUTH_STATUS' }, async (res) => {
       if (res && res.isLoggedIn) {
-        // Authenticated session verified!
-        stopQrLoginPolling();
-        const statusText = document.getElementById('qrStatusText');
-        if (statusText) {
-          statusText.innerHTML = '🎉 <strong>微信扫码认证成功！正在同步教务排课并刷新...</strong>';
-        }
-
-        setTimeout(() => {
-          hideBarrierPanel();
-          loadParallelTimelineData();
-        }, 1200);
+        handleAuthSuccessNotification();
       }
     });
   }

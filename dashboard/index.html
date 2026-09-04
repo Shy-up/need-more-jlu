@@ -186,30 +186,23 @@
             无法拉取教务实时排课。
           </p>
 
-          <!-- Embedded WeChat QR Fast Login Box -->
+          <!-- WeChat QR Fast Login Box -->
           <div class="barrier-qr-container" id="barrierQrContainer" style="display: none;">
             <div class="qr-card-header">
-              <span class="qr-card-badge">⚡ 智慧吉大 · 微信一键扫码登录</span>
-            </div>
-            <div class="qr-frame-wrapper">
-              <iframe id="qrLoginIframe" class="qr-login-iframe" src="about:blank" title="吉大统一身份认证扫码登录"></iframe>
+              <span class="qr-card-badge">⚡ 智慧吉大 · 微信扫码一键登录</span>
             </div>
             <div class="qr-status-indicator" id="qrStatusIndicator">
               <span class="qr-status-dot pulse"></span>
-              <span class="qr-status-text" id="qrStatusText">等待微信扫码确认中... 扫码成功后将自动完成鉴权并刷新</span>
+              <span class="qr-status-text" id="qrStatusText">正在等待微信扫码确认... 扫码完成后将自动关闭并刷新仪表盘</span>
             </div>
           </div>
 
           <div class="barrier-actions-row">
             <button class="btn-login-webvpn" id="btnToggleEmbeddedQr">
-              📱 展开微信扫码登录 (免跳转)
+              📱 微信扫码一键登录 (扫完自动刷新)
             </button>
-            <a href="https://vpn.jlu.edu.cn/https/48714f71342f7a336d582f7e2857373756c9770f46c0c2b0ff87560d5a42f1/jwapp/sys/kxjas/*default/index.do?THEME=purple&EMAP_LANG=en#/kxjscx" target="_blank" rel="noopener noreferrer" class="btn-external-link"
-              id="btnLoginWebVPN">
-              🔗 新窗口打开教务系统 ↗
-            </a>
-            <button class="btn-retry-real-fetch" id="btnRetryRealFetch">
-              🔄 重新获取排课
+            <button class="btn-retry-real-fetch" id="btnRetryRealFetch" style="display: none;">
+              🔄 重新尝试连接
             </button>
           </div>
           <div class="barrier-diagnostics-box">

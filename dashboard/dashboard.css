@@ -1674,24 +1674,24 @@ body.theme-light .timeline-slot-dot:nth-child(8)::after {
   margin-bottom: 20px;
 }
 
-/* Embedded WeChat QR Container Styles */
+/* WeChat QR Fast Login Styles */
 .barrier-qr-container {
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin: 16px 0 24px 0;
-  padding: 18px;
+  margin: 16px 0 20px 0;
+  padding: 16px 20px;
   background: var(--bg-secondary);
   border: 1px solid var(--border-glow);
   border-radius: var(--radius-lg);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
   animation: fadeIn 0.3s ease-out;
   max-width: 480px;
   width: 100%;
 }
 
 .qr-card-header {
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .qr-card-badge {
@@ -1700,38 +1700,19 @@ body.theme-light .timeline-slot-dot:nth-child(8)::after {
   color: #38bdf8;
   background: rgba(56, 189, 248, 0.12);
   border: 1px solid rgba(56, 189, 248, 0.3);
-  padding: 5px 14px;
+  padding: 4px 14px;
   border-radius: 20px;
   display: inline-flex;
   align-items: center;
 }
 
-.qr-frame-wrapper {
-  width: 100%;
-  max-width: 440px;
-  height: 520px;
-  background: #ffffff;
-  border-radius: var(--radius-md);
-  overflow: hidden;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.qr-login-iframe {
-  width: 100%;
-  height: 100%;
-  border: none;
-  background: #ffffff;
-}
-
 .qr-status-indicator {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  margin-top: 14px;
-  font-size: 12px;
+  margin-top: 4px;
+  font-size: 13px;
   color: var(--text-secondary);
 }
 
