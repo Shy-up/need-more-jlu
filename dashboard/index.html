@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,8 +8,11 @@
   <link rel="stylesheet" href="dashboard.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap"
+    rel="stylesheet">
 </head>
+
 <body class="theme-dark">
   <div id="app" class="dashboard-container">
     <!-- Top Navigation Header -->
@@ -17,44 +21,42 @@
         <div class="brand-badge">
           <span class="brand-logo">🏛️ JLU</span>
           <div class="brand-info">
-            <h1 class="brand-title">空闲自习室仪表盘</h1>
-            <span class="brand-subtitle">连坐指数 · 空间舱位选座 · 零废话直达</span>
+            <h1 class="brand-title">吉大空闲自习室</h1>
+            <span class="brand-subtitle">南岭教学楼真实排课直查</span>
           </div>
         </div>
 
         <!-- Focused Campus Badge (Nanling Dedicated) -->
-        <div class="campus-selector-box" title="当前版本精耕南岭校区核心教学楼">
+        <div class="campus-selector-box" title="南岭校区核心教学楼">
           <span class="selector-label">当前校区</span>
-          <div style="font-weight: 700; font-size: 13px; color: #38bdf8; display: flex; align-items: center; gap: 6px; padding: 2px 4px;">
+          <div
+            style="font-weight: 700; font-size: 13px; color: #38bdf8; display: flex; align-items: center; gap: 6px; padding: 2px 4px;">
             <span>南岭校区（工科）</span>
-            <span class="memory-tag" style="background: rgba(56, 189, 248, 0.2); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4);">聚焦逸夫/一教/二教</span>
+            <span class="memory-tag"
+              style="background: rgba(56, 189, 248, 0.2); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4);">逸夫楼
+              / 一教 / 二教</span>
           </div>
         </div>
       </div>
 
       <div class="header-right">
-        <!-- Real Data Authenticity Badge -->
-        <div id="realDataBadge" class="real-data-badge loading" title="教务数据源真实直连状态">
+        <!-- Data Sync Status Pill (Truthful, non-misleading) -->
+        <div id="realDataBadge" class="data-status-pill" title="教务数据加载状态">
           <span class="status-dot"></span>
-          <span class="status-text" id="realDataBadgeText">检测教务连接...</span>
-        </div>
-
-        <!-- Date Selector -->
-        <div class="date-selector-box" title="选择查询日期">
-          <input type="date" id="queryDateInput" style="background: var(--bg-surface); border: 1px solid var(--border-subtle); color: var(--text-primary); border-radius: var(--radius-sm); padding: 5px 8px; font-size: 13px; font-family: inherit; cursor: pointer;">
+          <span class="status-text" id="realDataBadgeText">正在获取排课数据...</span>
         </div>
 
         <!-- System Time Perception -->
         <div class="time-perception-card" id="timePerceptionCard">
           <div class="time-main">
             <span class="live-dot"></span>
-            <span class="live-clock" id="liveClock">14:45</span>
+            <span class="live-clock" id="liveClock">--:--</span>
           </div>
-          <div class="time-sub" id="timeMeta">2026年秋季学期 · 第 1 周 · 星期五</div>
-          <div class="current-slot-badge" id="currentSlotBadge">当前进行中：第 6 节 (14:20-15:05)</div>
+          <div class="time-sub" id="timeMeta">--</div>
+          <div class="current-slot-badge" id="currentSlotBadge">当前节次：--</div>
         </div>
 
-        <button id="syncDataBtn" class="btn-icon" title="刷新教务处实时真实数据">
+        <button id="syncDataBtn" class="btn-icon" title="重新获取教务处排课数据">
           <span class="sync-icon">🔄</span>
         </button>
 
@@ -68,31 +70,58 @@
     <div class="dash-layout">
       <!-- Left / Top Control Panel: Presets & Filters -->
       <aside class="control-panel">
+        <!-- Directly Expanded Inline Calendar (Zero-click popup, direct selection) -->
         <div class="panel-section">
           <div class="section-title-row">
-            <span class="section-title">⚡ 快速情景预设</span>
+            <span class="section-title">📅 查询日期</span>
+            <button class="btn-text" id="calendarTodayBtn">回到今天</button>
+          </div>
+          <div class="inline-calendar" id="inlineCalendar">
+            <div class="cal-nav-row">
+              <button class="cal-nav-btn" id="calPrevMonthBtn" title="上一月">‹</button>
+              <span class="cal-month-label" id="calMonthLabel">2026年 9月</span>
+              <button class="cal-nav-btn" id="calNextMonthBtn" title="下一月">›</button>
+            </div>
+            <div class="cal-weekdays">
+              <span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span>
+            </div>
+            <div class="cal-days-grid" id="calDaysGrid">
+              <!-- Dynamically populated 1-click date cells -->
+            </div>
+          </div>
+          <input type="hidden" id="queryDateInput">
+        </div>
+
+        <div class="panel-section">
+          <div class="section-title-row">
+            <span class="section-title">⚡ 时段快速预设</span>
             <button class="btn-text" id="resetFiltersBtn">重置</button>
           </div>
           <div class="preset-grid">
-            <button class="preset-btn active" data-preset="now">
+            <button class="preset-btn active" data-preset="now" id="presetNowBtn">
               <span class="p-icon">⚡</span>
-              <span class="p-text">此时此刻有座</span>
-              <span class="p-hint">连续空闲优先</span>
+              <span class="p-text">此时此刻</span>
+              <span class="p-hint" id="presetNowHint">当前节次</span>
+            </button>
+            <button class="preset-btn" data-preset="morning">
+              <span class="p-icon">🌅</span>
+              <span class="p-text">上午自习</span>
+              <span class="p-hint">1~4 节 (08:00-11:40)</span>
             </button>
             <button class="preset-btn" data-preset="afternoon">
               <span class="p-icon">☀️</span>
-              <span class="p-text">今天下午</span>
-              <span class="p-hint">5~8 节 (13:30-17:05)</span>
+              <span class="p-text">下午自习</span>
+              <span class="p-hint">5~8 节 (13:30-17:10)</span>
             </button>
             <button class="preset-btn" data-preset="evening">
               <span class="p-icon">🌙</span>
               <span class="p-text">今晚自习</span>
-              <span class="p-hint">9~11 节 (18:00-20:25)</span>
+              <span class="p-hint">9~12 节 (18:20-21:30)</span>
             </button>
-            <button class="preset-btn" data-preset="marathon">
-              <span class="p-icon">⏳</span>
-              <span class="p-text">连坐大空档</span>
-              <span class="p-hint">连续 ≥ 4节无课</span>
+            <button class="preset-btn" data-preset="all">
+              <span class="p-icon">📅</span>
+              <span class="p-text">全天占用</span>
+              <span class="p-hint">1~12 节全天走势</span>
             </button>
           </div>
         </div>
@@ -100,8 +129,8 @@
         <!-- 1~12 Session Multi-Select Matrix -->
         <div class="panel-section">
           <div class="section-title-row">
-            <span class="section-title">🕒 节次点阵多选</span>
-            <span class="section-tip" id="selectedSlotsCount">已选 4 节</span>
+            <span class="section-title">🕒 节次手动点选</span>
+            <span class="section-tip" id="selectedSlotsCount">已选 1 节</span>
           </div>
           <div class="slots-matrix" id="slotsMatrix">
             <!-- Dynamically populated 1~12 slots -->
@@ -110,22 +139,27 @@
 
         <!-- Filters & Preferences -->
         <div class="panel-section">
-          <div class="section-title">🛡️ 空间洁癖过滤</div>
+          <div class="section-title">🏫 教室类型筛选</div>
           <div class="filter-toggles">
             <label class="toggle-control">
-              <input type="checkbox" id="hideLabsToggle" checked>
+              <input type="checkbox" id="typeSmallToggle" checked>
               <span class="toggle-slider"></span>
-              <span class="toggle-label">一键隐藏机房与封闭实验室</span>
+              <span class="toggle-label">小教室 (30人以下)</span>
             </label>
             <label class="toggle-control">
-              <input type="checkbox" id="outletOnlyToggle">
+              <input type="checkbox" id="typeMediumToggle" checked>
               <span class="toggle-slider"></span>
-              <span class="toggle-label">仅看插座便利教室 (笔记本党)</span>
+              <span class="toggle-label">中教室 (30~80人)</span>
             </label>
             <label class="toggle-control">
-              <input type="checkbox" id="largeRoomOnlyToggle">
+              <input type="checkbox" id="typeLargeToggle" checked>
               <span class="toggle-slider"></span>
-              <span class="toggle-label">阶梯大教室优先 (宽敞无拘束)</span>
+              <span class="toggle-label">大教室 (80人以上)</span>
+            </label>
+            <label class="toggle-control">
+              <input type="checkbox" id="typeSpecialToggle">
+              <span class="toggle-slider"></span>
+              <span class="toggle-label">特殊教室 (实验室等)</span>
             </label>
           </div>
         </div>
@@ -135,7 +169,8 @@
           <div class="section-title">🎨 座舱状态图例</div>
           <div class="legend-items">
             <div class="legend-item"><span class="legend-dot status-free"></span> <strong>所选全空 (安心长坐)</strong></div>
-            <div class="legend-item"><span class="legend-dot status-partial"></span> <strong>部分空/中途有课 (需留意)</strong></div>
+            <div class="legend-item"><span class="legend-dot status-partial"></span> <strong>部分空/中途有课 (需留意)</strong>
+            </div>
             <div class="legend-item"><span class="legend-dot status-busy"></span> <strong>全占满 (无空位)</strong></div>
             <div class="legend-item"><span class="legend-dot status-closed"></span> <strong>封闭场地/机房</strong></div>
           </div>
@@ -162,7 +197,8 @@
             <span>🛡️ 核心准则：非真实即阻断报错 · 绝不输出任何伪造数据</span>
           </div>
           <div class="barrier-actions-row">
-            <a href="https://vpn.jlu.edu.cn/" target="_blank" rel="noopener noreferrer" class="btn-login-webvpn" id="btnLoginWebVPN">
+            <a href="https://vpn.jlu.edu.cn/" target="_blank" rel="noopener noreferrer" class="btn-login-webvpn"
+              id="btnLoginWebVPN">
               🔑 登录吉大 WebVPN (vpn.jlu.edu.cn) ↗
             </a>
             <button class="btn-retry-real-fetch" id="btnRetryRealFetch">
@@ -194,30 +230,15 @@
           <section class="micro-section">
             <div class="cabin-header">
               <div class="cabin-title-box">
-                <h2 class="cabin-title" id="currentBuildingTitle">逸夫楼 (Yi Fu Building)</h2>
-                <span class="cabin-subtitle" id="currentBuildingSub">楼层选座舱位热力图 · 真实建筑空间映射</span>
+                <h2 class="cabin-title" id="currentBuildingTitle">逸夫楼</h2>
+                <span class="cabin-subtitle" id="currentBuildingSub">楼层选座舱位热力图</span>
               </div>
-              <div class="cabin-actions">
-                <div class="view-pill-group">
-                  <button class="pill-btn active" id="viewModeAll">全楼层俯瞰</button>
-                  <button class="pill-btn" id="viewModeLowFloor">低楼层 (1~3F 免爬楼)</button>
-                </div>
-              </div>
-            </div>
-
-            <!-- Hidden Rooms & Parallel Reconstruction Notice -->
-            <div class="hidden-rooms-notice-card" id="hiddenRoomsNoticeCard">
-              <div class="notice-icon">🛡️</div>
-              <div class="notice-content">
-                <span class="notice-title">空间智能净化与真实可用保障</span>
-                <span class="notice-desc">系统已通过全天 1~12 节切片并发重构完整走势。<strong>全天有课、封闭或教务处无排课数据的教室已自动隐藏</strong>，当前仅呈现确有空闲自习时段的真实可用教室。</span>
-              </div>
-              <div class="notice-count" id="activeRoomsCountBadge">共 -- 间可用</div>
+              <div class="cabin-count-badge" id="activeRoomsCountBadge">共 -- 间可用</div>
             </div>
 
             <!-- Floor by Floor Seat Cabin Grid -->
             <div class="cabin-floors-container" id="cabinFloorsContainer">
-              <!-- Dynamically rendered floors from 5F down to 1F -->
+              <!-- Dynamically rendered floors from highest down to 1F -->
             </div>
           </section>
         </div>
@@ -230,31 +251,29 @@
       <div class="card-inner">
         <div class="card-header">
           <div class="card-room-title" id="hoverRoomName">逸夫 201</div>
-          <span class="card-room-badge" id="hoverRoomType">阶梯大教室 · 180座</span>
+          <span class="card-room-badge" id="hoverRoomType">普通教室 · 60座</span>
         </div>
-        <div class="card-safety-banner" id="hoverSafetyBanner">
-          <span class="safety-icon">🟢</span>
-          <span class="safety-text" id="hoverSafetyText">当前空闲，可连续自习至 17:30 (连续 4 节无课)</span>
+        <div class="card-status-banner" id="hoverStatusBanner">
+          <span class="status-icon" id="hoverStatusIcon">🟢</span>
+          <span class="status-text" id="hoverStatusText">当前时段空闲</span>
         </div>
 
         <!-- 1~12 Slots Timeline Hot Bar -->
         <div class="card-timeline-box">
-          <div class="timeline-title">全天 1~12 节课表走势</div>
+          <div class="timeline-title">全天 1~12 节排课走势 (绿:空闲 / 红:占用)</div>
           <div class="timeline-bar" id="hoverTimelineBar">
             <!-- 12 slot cells -->
           </div>
           <div class="timeline-labels">
             <span>上午 1-4</span>
             <span>下午 5-8</span>
-            <span>晚自习 9-12</span>
+            <span>晚上 9-12</span>
           </div>
         </div>
 
-        <!-- Physical Specs -->
-        <div class="card-specs-row">
-          <span class="spec-tag" id="hoverSpecOutlets">⚡ 靠墙插座充足</span>
-          <span class="spec-tag" id="hoverSpecAir">❄️ 有空调/风扇</span>
-          <span class="spec-tag" id="hoverSpecDesks">🪑 阶梯宽平桌</span>
+        <!-- Real Schedule Details Summary -->
+        <div class="card-schedule-summary" id="hoverScheduleSummary">
+          全天 12 节均空闲无课
         </div>
       </div>
     </div>
@@ -278,10 +297,12 @@
                 <strong>数据源头</strong>：吉林大学教务一体化服务平台（金智 EMAP 教学系统 <code>jwapp.jlu.edu.cn/jwapp/sys/kxjas/</code>）；
               </li>
               <li>
-                <strong>无感静默获取（推荐）</strong>：学生平时登录过 WebVPN，扩展在后台利用已有的 Cookie 会话，直接向教务处的 <code>queryKxjasByDate.do</code> 接口拉取本周各楼排课 JSON；
+                <strong>无感静默获取（推荐）</strong>：学生平时登录过 WebVPN，扩展在后台利用已有的 Cookie 会话，直接向教务处的 <code>queryKxjasByDate.do</code>
+                接口拉取本周各楼排课 JSON；
               </li>
               <li>
-                <strong>本地持久化离线秒开</strong>：全校课表一周变动极小，数据同步一次后存入 <code>chrome.storage.local</code>，后续使用 <strong>0 延迟瞬间直出</strong>，不吃校网带宽；
+                <strong>本地持久化离线秒开</strong>：全校课表一周变动极小，数据同步一次后存入 <code>chrome.storage.local</code>，后续使用 <strong>0
+                  延迟瞬间直出</strong>，不吃校网带宽；
               </li>
               <li>
                 <strong>数据纯白纸黑字高可信</strong>：没有算法黑盒干预，直接根据教务处节次布尔值计算“连坐安全感指数”。
@@ -302,4 +323,5 @@
 
   <script src="dashboard.js"></script>
 </body>
+
 </html>

@@ -27,15 +27,16 @@ window.NMJDrawer = (function() {
       <div id="nmj-drawer-overlay"></div>
       <div id="nmj-drawer">
         <!-- Draggable Resizer Handle on Left Edge -->
-        <div id="nmj-drawer-resizer" class="nmj-drawer-resizer" title="左右拖拽调整抽屉宽度">
-          <div class="resizer-handle-bar"></div>
+        <div id="nmj-drawer-resizer" class="nmj-drawer-resizer" title="按住左右拖拽调整宽度">
+          <div class="resizer-handle-pill">
+            <span class="resizer-bar-line"></span>
+            <span class="resizer-bar-line"></span>
+          </div>
         </div>
 
         <div class="nmj-drawer-header">
           <div class="nmj-drawer-header-left">
             <button class="nmj-btn nmj-btn-close-drawer" id="nmj-drawer-close-btn" title="关闭 (Esc)">✕ 关闭</button>
-            <span class="nmj-tag-authentic">🛡️ 官方原文保真模式</span>
-            <span class="nmj-tip-drag">↔ 可左右拖拽调宽</span>
           </div>
           <div class="nmj-drawer-header-right">
             <a href="#" target="_blank" rel="noopener noreferrer" class="nmj-btn nmj-btn-native-tab" id="nmj-drawer-open-native">
@@ -134,67 +135,16 @@ window.NMJDrawer = (function() {
   }
 
   // Deep cleaning inside the iframe: remove left portal sidebar, top banner, footer; wire downloads
+  // Ensure attachments inside iframe are easy to click and download cleanly without distorting original layouts
   function cleanIframeDOM(idoc) {
     if (!idoc) return;
 
-    // 1. Inject comprehensive CSS rules into iframe
+    // Inject minimal, non-destructive enhancements only
     let style = idoc.getElementById('nmj-injected-style');
     if (!style) {
       style = idoc.createElement('style');
       style.id = 'nmj-injected-style';
       style.textContent = `
-        /* 1. Hide Top Banners, Logos, Header Tables */
-        table[background*="top"], table[background*="banner"], 
-        tr[background*="top"], td[background*="top"],
-        img[src*="top"], img[src*="banner"], img[src*="header"], img[src*="logo"],
-        .top, #top, .header, #header, #topTable, .banner-box {
-          display: none !important;
-        }
-
-        /* 2. Hide Left Sidebar, Left Tree & Left Portal Columns (Widths 180px - 380px) */
-        #left, .left, #leftTree, #leftMenu, #menuTree, #left_menu, #leftColumn,
-        td#left, td.left, td#leftTree, td#leftMenu, div#left, div.left,
-        td[id*="left"], td[class*="left"], div[id*="left"], div[class*="left"],
-        td[width="180"], td[width="190"], td[width="200"], td[width="210"], 
-        td[width="220"], td[width="230"], td[width="240"], td[width="250"],
-        td[width="260"], td[width="270"], td[width="280"], td[width="290"],
-        td[width="300"], td[width="310"], td[width="320"], td[width="330"],
-        td[width="340"], td[width="350"], td[width="360"], td[width="380"],
-        table[id*="left"], table[class*="left"],
-        .dtree, #channelTree, #dTree {
-          display: none !important;
-        }
-
-        /* 3. Hide Footers, Quick Links & Copyright */
-        #footer, .footer, #bottom, .bottom, table[id*="footer"], table[class*="footer"],
-        table[background*="foot"], tr[background*="foot"], td[background*="foot"],
-        .quick-links, #quickLinks {
-          display: none !important;
-        }
-
-        /* 4. Maximize Content Area */
-        html, body {
-          width: 100% !important;
-          margin: 0 !important;
-          padding: 16px 28px 80px 28px !important;
-          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Microsoft YaHei", sans-serif !important;
-          background-color: #ffffff !important;
-          color: #1e293b !important;
-          overflow-x: hidden !important;
-          box-sizing: border-box !important;
-        }
-
-        /* Ensure parent layout tables span 100% width without blank margins */
-        table {
-          width: 100% !important;
-          max-width: 100% !important;
-        }
-
-        td#right, td.right, td#content, td.content, #mainContent, .mainContent {
-          width: 100% !important;
-          display: block !important;
-        }
-
         /* In-Body Attachment Links: Make clickable, distinct, and obvious */
         .nmj-inbody-att-link {
           display: inline-flex !important;
@@ -215,66 +165,6 @@ window.NMJDrawer = (function() {
         }
       `;
       (idoc.head || idoc.documentElement).appendChild(style);
-    }
-
-    // 2. Direct DOM Pruning for JLU Portal Multi-Column Tables
-    try {
-      const KEYWORDS_LEFT = [
-        '用户登录', '站内搜索', '融合门户', '网上办事大厅', '制度清单',
-        '基本情况', '公共服务', '信息服务', '网络交流', '专题专栏',
-        '吉大学报', '栏目导航', '信息分类', '管理、服务及业务机构',
-        '院系设置', '树立和践行正确政绩观', '快速链接'
-      ];
-
-      const tables = idoc.querySelectorAll('table');
-      tables.forEach(t => {
-        // Reset fixed layout widths (e.g. width="1002", "980") to 100%
-        if (t.getAttribute('width')) {
-          t.setAttribute('width', '100%');
-        }
-
-        const trs = t.querySelectorAll(':scope > tbody > tr, :scope > tr');
-        trs.forEach(tr => {
-          const tds = tr.querySelectorAll(':scope > td');
-          if (tds.length >= 2) {
-            const firstTd = tds[0];
-            const text0 = (firstTd.innerText || '').trim();
-            const w0 = firstTd.offsetWidth || parseInt(firstTd.getAttribute('width') || '0', 10);
-            
-            // If first td is the left sidebar (matched by keyword, tree link, or column width)
-            const hasLeftKeywords = KEYWORDS_LEFT.some(k => text0.includes(k));
-            const hasNavLinks = firstTd.querySelector('a[href*="channelId"], a[href*="jldxList"], .dtree, img[src*="tree"]');
-            
-            if (hasLeftKeywords || hasNavLinks || (w0 > 0 && w0 <= 380)) {
-              firstTd.style.setProperty('display', 'none', 'important');
-              if (tds[1]) {
-                tds[1].style.setProperty('width', '100%', 'important');
-                tds[1].style.setProperty('max-width', '100%', 'important');
-                tds[1].style.setProperty('display', 'table-cell', 'important');
-              }
-            }
-          }
-
-          // Hide copyright and footer rows
-          const trText = (tr.innerText || '').trim();
-          if (trText.includes('版权所有') || (trText.includes('快速链接') && trText.includes('教学工作'))) {
-            tr.style.setProperty('display', 'none', 'important');
-          }
-        });
-      });
-
-      // Also hide standalone quick-links / footer blocks
-      idoc.querySelectorAll('div, table').forEach(el => {
-        const text = (el.innerText || '').trim();
-        if (
-          (text.includes('快速链接') && text.includes('教学工作') && text.includes('科研工作')) ||
-          (text.includes('吉林大学版权所有') && text.includes('长春市'))
-        ) {
-          el.style.setProperty('display', 'none', 'important');
-        }
-      });
-    } catch (e) {
-      console.warn('[need_more_jlu] DOM 清洗提示:', e);
     }
 
     // 3. Process & Enhance Attachment Download Links

@@ -122,35 +122,62 @@
 .nmj-drawer-resizer {
   position: absolute;
   top: 0;
-  left: -8px;
-  width: 16px;
+  left: -14px;
+  width: 24px;
   height: 100%;
   cursor: col-resize;
-  z-index: 999;
+  z-index: 9999;
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   transition: background 0.15s ease;
 }
 
 .nmj-drawer-resizer:hover,
 body.nmj-is-resizing .nmj-drawer-resizer {
-  background: rgba(2, 132, 199, 0.15);
+  background: rgba(2, 132, 199, 0.08);
 }
 
-.resizer-handle-bar {
-  width: 4px;
-  height: 48px;
-  border-radius: 4px;
+/* Obvious Tactile Floating Pull-Tab Handle */
+.resizer-handle-pill {
+  width: 14px;
+  height: 64px;
+  border-radius: 8px 0 0 8px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-right: none;
+  box-shadow: -4px 0 12px rgba(0, 0, 0, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  cursor: col-resize;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  position: absolute;
+  left: 0;
+}
+
+.resizer-bar-line {
+  width: 2px;
+  height: 24px;
   background-color: #94a3b8;
-  transition: background-color 0.2s, height 0.2s, box-shadow 0.2s;
+  border-radius: 2px;
+  transition: background-color 0.2s, height 0.2s;
 }
 
-.nmj-drawer-resizer:hover .resizer-handle-bar,
-body.nmj-is-resizing .resizer-handle-bar {
-  background-color: #0284c7;
+.nmj-drawer-resizer:hover .resizer-handle-pill,
+body.nmj-is-resizing .resizer-handle-pill {
+  background: #f0f9ff;
+  border-color: #0284c7;
+  box-shadow: -6px 0 16px rgba(2, 132, 199, 0.4);
+  width: 16px;
   height: 80px;
-  box-shadow: 0 0 10px rgba(2, 132, 199, 0.6);
+}
+
+.nmj-drawer-resizer:hover .resizer-bar-line,
+body.nmj-is-resizing .resizer-bar-line {
+  background-color: #0284c7;
+  height: 32px;
 }
 
 body.nmj-is-resizing {
