@@ -1,20 +1,23 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
   <meta charset="UTF-8">
   <title>need_more_jlu - 高级自定义与偏好设置</title>
   <link rel="stylesheet" href="options.css">
 </head>
+
 <body>
   <div class="options-wrapper">
     <div class="options-header">
       <div class="logo-box">JLU</div>
       <div>
-        <h1>need_more_jlu · 高级自定义中心</h1>
-        <p>自定义吉林大学校园网及 OA 平台的视觉风格、背景壁纸与过滤规则</p>
+        <h1>设置</h1>
+        <p>自定义need_more_jlu的视觉风格、背景壁纸与过滤规则</p>
       </div>
     </div>
 
+    <!-- Theme and Wallpaper Card -->
     <div class="settings-card">
       <h2>🖼️ 自定义背景与壁纸</h2>
       <div class="form-group">
@@ -32,19 +35,22 @@
       <div class="form-group" id="wallpaper-input-group">
         <label>自定义壁纸来源</label>
         <div class="wallpaper-source-tabs">
-          <label class="radio-label"><input type="radio" name="wallpaper-source" value="dashboard" checked> 🌌 插件自带仪表盘背景</label>
+          <label class="radio-label"><input type="radio" name="wallpaper-source" value="dashboard" checked> 🌌
+            插件自带仪表盘背景</label>
           <label class="radio-label"><input type="radio" name="wallpaper-source" value="local"> 📁 选择本地图片文件</label>
           <label class="radio-label"><input type="radio" name="wallpaper-source" value="url"> 🌐 网络图片 URL</label>
         </div>
 
         <!-- Dashboard Preset Container -->
         <div id="dashboard-wallpaper-container" style="margin-top: 10px;">
-          <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: #0b0f17; border-radius: 8px; border: 1px solid rgba(56, 189, 248, 0.35);">
+          <div
+            style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: #0b0f17; border-radius: 8px; border: 1px solid rgba(56, 189, 248, 0.35);">
             <div>
               <div style="font-size: 13.5px; font-weight: 700; color: #38bdf8;">插件自带仪表盘背景</div>
               <div style="font-size: 11.5px; color: #94a3b8; margin-top: 2px;">原生暗夜微光渐变，与仪表盘风格保持一致</div>
             </div>
-            <button type="button" class="btn btn-primary" id="btn-apply-dashboard-bg" style="font-size: 12px; padding: 6px 14px;">
+            <button type="button" class="btn btn-primary" id="btn-apply-dashboard-bg"
+              style="font-size: 12px; padding: 6px 14px;">
               设为当前壁纸
             </button>
           </div>
@@ -55,7 +61,8 @@
           <div class="upload-dropzone" id="upload-dropzone">
             <div class="dropzone-content">
               <span style="font-size: 28px;">📷</span>
-              <p style="margin: 6px 0 2px 0; font-size: 13.5px; font-weight: 500; color: #1e293b;">点击选择本地壁纸图片，或直接拖拽到此处</p>
+              <p style="margin: 6px 0 2px 0; font-size: 13.5px; font-weight: 500; color: #1e293b;">点击选择本地壁纸图片，或直接拖拽到此处
+              </p>
               <span class="help-text">支持 JPG、PNG、WEBP 高清本地壁纸（自动转存至浏览器本地）</span>
             </div>
             <input type="file" id="local-wallpaper-file" accept="image/*" style="display: none;" />
@@ -70,38 +77,49 @@
 
         <!-- Wallpaper Preview & Remove -->
         <div id="wallpaper-preview-box" style="display: none; margin-top: 14px;">
-          <div style="display: flex; align-items: center; gap: 14px; padding: 12px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
-            <img id="wallpaper-preview-img" src="" alt="壁纸预览" style="width: 130px; height: 74px; object-fit: cover; border-radius: 6px; border: 1px solid #cbd5e1;" />
+          <div
+            style="display: flex; align-items: center; gap: 14px; padding: 12px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
+            <img id="wallpaper-preview-img" src="" alt="壁纸预览"
+              style="width: 130px; height: 74px; object-fit: cover; border-radius: 6px; border: 1px solid #cbd5e1;" />
             <div>
               <div style="font-size: 13px; color: #1e293b; font-weight: 600;">已就绪自定义壁纸</div>
               <div style="font-size: 11.5px; color: #64748b; margin-top: 2px;" id="wallpaper-file-info">本地图片</div>
-              <button type="button" class="btn btn-secondary" id="btn-remove-wallpaper" style="padding: 4px 10px; font-size: 11.5px; margin-top: 8px; color: #ef4444; border-color: #fca5a5;">
+              <button type="button" class="btn btn-secondary" id="btn-remove-wallpaper"
+                style="padding: 4px 10px; font-size: 11.5px; margin-top: 8px; color: #ef4444; border-color: #fca5a5;">
                 🗑️ 移除当前壁纸
               </button>
             </div>
-        <!-- Opacity Settings in Options -->
-        <div style="margin-top: 14px; padding: 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; display: flex; flex-direction: column; gap: 12px;">
-          <div>
-            <div style="display: flex; justify-content: space-between; font-size: 13px; font-weight: 600; color: #1e293b; margin-bottom: 4px;">
-              <span>🎨 界面面板不透明度</span>
-              <span id="opt-ui-opacity-val" style="font-family: monospace; color: #0284c7;">85%</span>
-            </div>
-            <input type="range" id="opt-ui-opacity-slider" min="20" max="100" step="2" value="85" style="width: 100%; cursor: pointer;" />
-            <span class="help-text">调节仪表盘与卡片容器的毛玻璃通透程度</span>
           </div>
 
-          <div>
-            <div style="display: flex; justify-content: space-between; font-size: 13px; font-weight: 600; color: #1e293b; margin-bottom: 4px;">
-              <span>🖼️ 壁纸透明度 / 浓度</span>
-              <span id="opt-wp-opacity-val" style="font-family: monospace; color: #0284c7;">90%</span>
+          <!-- Opacity Settings in Options -->
+          <div
+            style="margin-top: 14px; padding: 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; display: flex; flex-direction: column; gap: 12px;">
+            <div>
+              <div
+                style="display: flex; justify-content: space-between; font-size: 13px; font-weight: 600; color: #1e293b; margin-bottom: 4px;">
+                <span>🎨 界面面板不透明度</span>
+                <span id="opt-ui-opacity-val" style="font-family: monospace; color: #0284c7;">85%</span>
+              </div>
+              <input type="range" id="opt-ui-opacity-slider" min="20" max="100" step="2" value="85"
+                style="width: 100%; cursor: pointer;" />
+              <span class="help-text">调节仪表盘与卡片容器的毛玻璃通透程度</span>
             </div>
-            <input type="range" id="opt-wp-opacity-slider" min="10" max="100" step="2" value="90" style="width: 100%; cursor: pointer;" />
-            <span class="help-text">调节背景壁纸独立透明度</span>
+
+            <div>
+              <div
+                style="display: flex; justify-content: space-between; font-size: 13px; font-weight: 600; color: #1e293b; margin-bottom: 4px;">
+                <span>🖼️ 壁纸透明度 / 浓度</span>
+                <span id="opt-wp-opacity-val" style="font-family: monospace; color: #0284c7;">90%</span>
+              </div>
+              <input type="range" id="opt-wp-opacity-slider" min="10" max="100" step="2" value="90"
+                style="width: 100%; cursor: pointer;" />
+              <span class="help-text">调节背景壁纸独立透明度</span>
+            </div>
           </div>
         </div>
       </div>
 
-      <div class="form-group">
+      <div class="form-group" style="margin-top: 18px;">
         <label>主强调色 (Accent Color)</label>
         <div style="display: flex; align-items: center; gap: 12px;">
           <input type="color" id="accent-color" value="#0284c7" />
@@ -110,30 +128,73 @@
       </div>
     </div>
 
+    <!-- OA Toolbox Settings -->
     <div class="settings-card">
-      <h2>🎯 OA 工具箱设置</h2>
+      <h2>吉大OA增强设置</h2>
       <div class="form-group">
-        <label class="checkbox-label">
-          <input type="checkbox" id="drawer-preview-enabled" checked />
-          <span>启用原网页保真侧边抽屉（点击公文标题直接侧边滑出）</span>
+        <label class="checkbox-label" style="font-weight: 600;">
+          <input type="checkbox" id="oa-tools-enabled" checked />
+          <span>启用 吉大OA增强</span>
         </label>
+        <span class="help-text">侧边浏览和上次看到视觉增强
+        </span>
+      </div>
+
+      <div id="oa-sub-options"
+        style="margin-left: 24px; padding-left: 12px; border-left: 2px solid #e2e8f0; margin-top: 12px; display: flex; flex-direction: column; gap: 16px;">
+        <div class="form-group" style="margin-bottom: 0;">
+          <label class="checkbox-label">
+            <input type="checkbox" id="drawer-preview-enabled" checked />
+            <span>启用侧边浏览</span>
+          </label>
+          <span class="help-text">若OA显示或交互错误请关闭此项</span>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 0;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <label style="margin: 0; font-weight: 600; color: #334155;">🚩 「上次看到这里」刷新时间</label>
+            <span id="opt-divider-interval-val"
+              style="font-family: monospace; font-weight: 700; color: #0284c7; font-size: 13px;">15 分钟</span>
+          </div>
+          <input type="range" id="opt-divider-interval-slider" min="0" max="72" step="0.25" value="0.25"
+            style="width: 100%; cursor: pointer;" />
+          <div style="display: flex; justify-content: space-between; font-size: 11px; color: #94a3b8; margin-top: 2px;">
+            <span>即刻刷新</span>
+            <span>24 小时</span>
+            <span>48 小时</span>
+            <span>72 小时</span>
+          </div>
+          <div class="interval-presets" style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px;">
+            <button type="button" class="preset-pill-btn active" data-hours="0.25">15分钟 (默认)</button>
+            <button type="button" class="preset-pill-btn" data-hours="0.5">30分钟</button>
+            <button type="button" class="preset-pill-btn" data-hours="1">1小时</button>
+            <button type="button" class="preset-pill-btn" data-hours="6">6小时</button>
+            <button type="button" class="preset-pill-btn" data-hours="12">12小时</button>
+            <button type="button" class="preset-pill-btn" data-hours="24">24小时</button>
+            <button type="button" class="preset-pill-btn" data-hours="72">72小时</button>
+            <button type="button" class="preset-pill-btn" data-hours="0">0小时 (即刻)</button>
+          </div>
+          <span class="help-text" style="margin-top: 6px;">支持 0 小时至 72 小时。在此时间窗口内多次访问
+            OA，红线基准将保持锁定不被覆写；超出该时间后重新访问离开，将自动确立新基准。</span>
+        </div>
       </div>
     </div>
 
+    <!-- Data Management Card -->
     <div class="settings-card">
       <h2>💾 本地数据与缓存</h2>
       <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-        <button class="btn btn-secondary" id="btn-reset-drawer-width">📐 重置抽屉宽度 (恢复默认 840px)</button>
-        <button class="btn btn-secondary" id="btn-clear-read">🚩 重置「上次看到这里」红线记录</button>
+        <button type="button" class="btn btn-secondary" id="btn-clear-read">🚩 重置「上次看到这里」红线记录</button>
       </div>
     </div>
 
     <div style="text-align: right; margin-top: 24px;">
       <span id="save-status" class="save-status">已保存更改</span>
-      <button class="btn btn-primary" id="btn-save">保存设置</button>
+      <button type="button" class="btn btn-primary" id="btn-save">保存设置</button>
     </div>
   </div>
 
   <script src="options.js"></script>
 </body>
+
 </html>

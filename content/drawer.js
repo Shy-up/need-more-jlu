@@ -36,11 +36,11 @@ window.NMJDrawer = (function() {
 
         <div class="nmj-drawer-header">
           <div class="nmj-drawer-header-left">
-            <button class="nmj-btn nmj-btn-close-drawer" id="nmj-drawer-close-btn" title="关闭 (Esc)">✕ 关闭</button>
+            <button class="nmj-btn nmj-btn-close-drawer" id="nmj-drawer-close-btn" title="关闭 (Esc)">✕</button>
           </div>
           <div class="nmj-drawer-header-right">
             <a href="#" target="_blank" rel="noopener noreferrer" class="nmj-btn nmj-btn-native-tab" id="nmj-drawer-open-native">
-              ↗ 官方原网页新开
+              ↗ 原文
             </a>
           </div>
         </div>

@@ -24,6 +24,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const accentColorInput = document.getElementById('accent-color');
   const accentHexSpan = document.getElementById('accent-hex');
   const defaultUnreadCheck = document.getElementById('default-unread');
+  const oaToolsCheck = document.getElementById('oa-tools-enabled');
+  const oaSubOptions = document.getElementById('oa-sub-options');
   const drawerCheck = document.getElementById('drawer-preview-enabled');
   const btnSave = document.getElementById('btn-save');
   const saveStatus = document.getElementById('save-status');
@@ -35,7 +37,70 @@ document.addEventListener('DOMContentLoaded', () => {
   const optWpSlider = document.getElementById('opt-wp-opacity-slider');
   const optWpVal = document.getElementById('opt-wp-opacity-val');
 
+  const dividerIntervalSlider = document.getElementById('opt-divider-interval-slider');
+  const dividerIntervalVal = document.getElementById('opt-divider-interval-val');
+  const presetPillBtns = document.querySelectorAll('.preset-pill-btn');
+
   let currentWallpaperData = '';
+
+  function formatIntervalText(hours) {
+    const h = Number(hours);
+    if (h <= 0) return '0 小时 (每次即刻更新)';
+    if (h < 1) {
+      const mins = Math.round(h * 60);
+      return `${mins} 分钟${mins === 15 ? ' (默认)' : ''}`;
+    }
+    if (h % 24 === 0 && h >= 24) {
+      return `${h} 小时 (${h / 24} 天)`;
+    }
+    if (h % 1 !== 0) {
+      return `${h} 小时 (${Math.round(h * 60)} 分钟)`;
+    }
+    return `${h} 小时`;
+  }
+
+  function updatePresetPills(hours) {
+    const val = Number(hours);
+    presetPillBtns.forEach(btn => {
+      if (Math.abs(Number(btn.dataset.hours) - val) < 0.01) {
+        btn.classList.add('active');
+      } else {
+        btn.classList.remove('active');
+      }
+    });
+  }
+
+  if (dividerIntervalSlider) {
+    dividerIntervalSlider.addEventListener('input', (e) => {
+      const val = Number(e.target.value);
+      if (dividerIntervalVal) dividerIntervalVal.textContent = formatIntervalText(val);
+      updatePresetPills(val);
+    });
+  }
+
+  presetPillBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const val = Number(btn.dataset.hours);
+      if (dividerIntervalSlider) {
+        dividerIntervalSlider.value = val;
+        if (dividerIntervalVal) dividerIntervalVal.textContent = formatIntervalText(val);
+        updatePresetPills(val);
+      }
+    });
+  });
+
+  function updateOaSubOptionsVisibility() {
+    if (oaSubOptions && oaToolsCheck) {
+      oaSubOptions.style.opacity = oaToolsCheck.checked ? '1' : '0.4';
+      oaSubOptions.style.pointerEvents = oaToolsCheck.checked ? 'auto' : 'none';
+      if (drawerCheck) drawerCheck.disabled = !oaToolsCheck.checked;
+      if (dividerIntervalSlider) dividerIntervalSlider.disabled = !oaToolsCheck.checked;
+    }
+  }
+
+  if (oaToolsCheck) {
+    oaToolsCheck.addEventListener('change', updateOaSubOptionsVisibility);
+  }
 
   // Load existing settings
   chrome.storage.local.get(['nmj_settings', 'nmj_star_map'], (res) => {
@@ -69,9 +134,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     accentColorInput.value = settings.customAccent || '#0284c7';
-    accentHexSpan.textContent = accentColorInput.value;
-    defaultUnreadCheck.checked = !!settings.onlyUnread;
-    drawerCheck.checked = settings.drawerEnabled !== false;
+    if (accentHexSpan) accentHexSpan.textContent = accentColorInput.value;
+    if (defaultUnreadCheck) defaultUnreadCheck.checked = !!settings.onlyUnread;
+    if (oaToolsCheck) oaToolsCheck.checked = settings.oaToolsEnabled !== false;
+    if (drawerCheck) drawerCheck.checked = settings.drawerEnabled !== false;
+
+    const intervalHours = (settings.seenDividerIntervalHours !== undefined)
+      ? Number(settings.seenDividerIntervalHours)
+      : 0.25;
+    if (dividerIntervalSlider) {
+      dividerIntervalSlider.value = intervalHours;
+      if (dividerIntervalVal) dividerIntervalVal.textContent = formatIntervalText(intervalHours);
+      updatePresetPills(intervalHours);
+    }
+
+    updateOaSubOptionsVisibility();
 
     updateWallpaperVisibility();
   });
@@ -243,12 +320,19 @@ document.addEventListener('DOMContentLoaded', () => {
       settings.theme = themeSelect.value;
       settings.customWallpaper = currentWallpaperData;
       settings.customAccent = accentColorInput.value;
-      settings.onlyUnread = defaultUnreadCheck.checked;
-      settings.drawerEnabled = drawerCheck.checked;
+      if (defaultUnreadCheck) settings.onlyUnread = defaultUnreadCheck.checked;
+      if (oaToolsCheck) settings.oaToolsEnabled = oaToolsCheck.checked;
+      if (drawerCheck) settings.drawerEnabled = drawerCheck.checked;
+      if (dividerIntervalSlider) settings.seenDividerIntervalHours = Number(dividerIntervalSlider.value);
       if (optUiSlider) settings.uiOpacity = Number(optUiSlider.value) / 100;
       if (optWpSlider) settings.wallpaperOpacity = Number(optWpSlider.value) / 100;
 
       chrome.storage.local.set({ nmj_settings: settings }, () => {
+        // Also sync to localStorage fallback
+        try {
+          localStorage.setItem('nmj_settings', JSON.stringify(settings));
+        } catch (e) {}
+
         saveStatus.style.display = 'inline';
         setTimeout(() => {
           saveStatus.style.display = 'none';
@@ -259,7 +343,8 @@ document.addEventListener('DOMContentLoaded', () => {
           tabs.forEach(tab => {
             if (tab.id && tab.url && (tab.url.includes('jlu.edu.cn'))) {
               chrome.tabs.sendMessage(tab.id, {
-                action: 'change_theme',
+                action: 'update_settings',
+                settings: settings,
                 theme: settings.theme,
                 wallpaper: settings.customWallpaper,
                 accent: settings.customAccent
@@ -275,14 +360,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Reset Drawer Width
-  const btnResetDrawerWidth = document.getElementById('btn-reset-drawer-width');
-  if (btnResetDrawerWidth) {
-    btnResetDrawerWidth.addEventListener('click', () => {
-      localStorage.removeItem('nmj_drawer_width');
-      alert('已重置抽屉宽度为默认 840px！');
-    });
-  }
 
   // Clear Last-Seen Divider
   if (btnClearRead) {

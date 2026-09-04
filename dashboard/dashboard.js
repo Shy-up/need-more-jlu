@@ -1513,21 +1513,6 @@
     const currentBldg = currentBuildings.find(b => b.id === state.buildingId) || currentBuildings[0] || { id: '65', name: '教学楼', shortName: '教学楼' };
     
     document.getElementById('currentBuildingTitle').textContent = `${currentBldg.shortName} (${currentBldg.name})`;
-    
-    const timeInfo = getCurrentTimeSlotInfo();
-    let subDetail = `选中第 ${state.selectedSlots.join(',')} 节`;
-    if (isQueryingToday() && (state.activePreset === 'now' || arraysEqual(state.selectedSlots, [getCurrentTimeSlot()]))) {
-      if (timeInfo.type === 'in_session') {
-        subDetail = `当前第 ${timeInfo.activeSlot} 节进行中 (${timeInfo.slotDef.time})`;
-      } else if (timeInfo.type === 'in_break') {
-        subDetail = `${timeInfo.badgeText.split(' ')[0]} (下节 ${timeInfo.nextSlotDef ? timeInfo.nextSlotDef.name : ''} ${timeInfo.nextSlotDef ? timeInfo.nextSlotDef.start : ''} 开始)`;
-      } else if (timeInfo.type === 'before_school') {
-        subDetail = `早间课前 (第1节 08:00 开始)`;
-      } else if (timeInfo.type === 'after_school') {
-        subDetail = `今日课程已结束 (晚自习留意锁楼)`;
-      }
-    }
-    document.getElementById('currentBuildingSub').textContent = `${state.queryDate} · ${subDetail} · 空间舱位图`;
 
     const allRooms = buildingRoomsMap[currentBldg.id] || [];
     
