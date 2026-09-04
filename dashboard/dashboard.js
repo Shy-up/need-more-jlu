@@ -1013,26 +1013,18 @@
     }
   }
 
-  // Calculate dynamic physical cell dimensions based on classroom capacity (15 ~ 400 seats)
-  // Ensures larger rooms have noticeably larger areas, with fixed lower (15) and upper (400) bounds
-  function getRoomDimensions(capacity, roomName) {
-    const minCap = 15;
-    const maxCap = 400;
-    const clamped = Math.max(minCap, Math.min(maxCap, Number(capacity) || 60));
-    const t = (clamped - minCap) / (maxCap - minCap); // 0.0 ~ 1.0
-
-    // Width scales from 105px to 190px, height from 68px to 96px
-    let width = Math.round(105 + t * 85);
-    let height = Math.round(68 + t * 28);
-
-    // Ensure long classroom names (e.g. 机械设计多媒体室) fit normally without clipping
-    const str = String(roomName || '');
-    if (str.length >= 6) {
-      const minNameWidth = Math.min(220, 75 + str.length * 13);
-      width = Math.max(width, minNameWidth);
+  // Standard fixed tiered sizes:
+  // 小教室: fixed compact (106x68)
+  // 中教室: fixed medium (138x74)
+  // 大教室: fixed large (176x84)
+  // 特殊教室: fixed medium dashed (138x74)
+  // Long names (>= 8 characters) gracefully extend minWidth to ensure zero clipping
+  function applyRoomTierSizing(roomCell, room) {
+    const nameStr = String(room.number || '');
+    if (nameStr.length >= 8) {
+      const neededWidth = Math.min(240, 80 + nameStr.length * 13);
+      roomCell.style.minWidth = `${neededWidth}px`;
     }
-
-    return { width, height };
   }
 
   function renderFloorCabinMap() {
@@ -1120,10 +1112,8 @@
         roomCell.className = `room-cabin-cell type-${room.category} ${statusClass}`;
         roomCell.dataset.roomId = room.id;
 
-        // Dynamic area sizing: larger rooms have larger areas (15 ~ 400 seats bounds)
-        const dims = getRoomDimensions(room.capacity, room.number);
-        roomCell.style.width = `${dims.width}px`;
-        roomCell.style.minHeight = `${dims.height}px`;
+        // Tiered standard fixed size (with long name protection)
+        applyRoomTierSizing(roomCell, room);
 
         let icon = room.typeIcon || '🏛️';
 
