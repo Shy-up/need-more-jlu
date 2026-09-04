@@ -52,7 +52,10 @@
       large: true,
       special: false
     },
-    isDarkTheme: false
+    isDarkTheme: false,
+    customWallpaper: '',
+    uiOpacity: 0.85,
+    wallpaperOpacity: 0.90
   };
 
   // Structured room repository grouped by buildingId: { [buildingId]: [] }
@@ -399,12 +402,35 @@
 
   function applyWallpaper(wallpaperData) {
     state.customWallpaper = wallpaperData || '';
+    const bgLayer = document.getElementById('wallpaperBgLayer');
     if (state.customWallpaper) {
       document.body.classList.add('has-custom-wallpaper');
-      document.body.style.backgroundImage = `url("${state.customWallpaper}")`;
+      if (bgLayer) {
+        bgLayer.style.display = 'block';
+        bgLayer.style.backgroundImage = `url("${state.customWallpaper}")`;
+        bgLayer.style.opacity = state.wallpaperOpacity;
+      }
     } else {
       document.body.classList.remove('has-custom-wallpaper');
-      document.body.style.backgroundImage = '';
+      if (bgLayer) {
+        bgLayer.style.display = 'none';
+        bgLayer.style.backgroundImage = '';
+      }
+    }
+  }
+
+  function applyOpacity(uiOp, wpOp) {
+    if (uiOp !== undefined && uiOp !== null) {
+      state.uiOpacity = Math.max(0.1, Math.min(1.0, Number(uiOp)));
+      document.documentElement.style.setProperty('--ui-opacity', String(state.uiOpacity));
+    }
+    if (wpOp !== undefined && wpOp !== null) {
+      state.wallpaperOpacity = Math.max(0.0, Math.min(1.0, Number(wpOp)));
+      document.documentElement.style.setProperty('--wp-opacity', String(state.wallpaperOpacity));
+      const bgLayer = document.getElementById('wallpaperBgLayer');
+      if (bgLayer) {
+        bgLayer.style.opacity = state.wallpaperOpacity;
+      }
     }
   }
 
@@ -433,39 +459,41 @@
     if (partial.theme !== undefined) {
       localStorage.setItem('nmj_theme', partial.theme);
     }
+    if (partial.uiOpacity !== undefined) {
+      localStorage.setItem('nmj_ui_opacity', String(partial.uiOpacity));
+    }
+    if (partial.wallpaperOpacity !== undefined) {
+      localStorage.setItem('nmj_wp_opacity', String(partial.wallpaperOpacity));
+    }
   }
 
   function initWallpaperAndTheme() {
     const localTheme = localStorage.getItem('nmj_theme');
     const localWp = localStorage.getItem('nmj_custom_wallpaper');
+    const localUiOp = localStorage.getItem('nmj_ui_opacity');
+    const localWpOp = localStorage.getItem('nmj_wp_opacity');
 
-    if (localTheme) {
-      applyTheme(localTheme === 'dark');
-    }
-    if (localWp) {
-      applyWallpaper(localWp);
-    }
+    if (localTheme) applyTheme(localTheme === 'dark');
+    if (localUiOp) applyOpacity(localUiOp, null);
+    if (localWpOp) applyOpacity(null, localWpOp);
+    if (localWp) applyWallpaper(localWp);
 
     if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
       chrome.storage.local.get(['nmj_settings'], (res) => {
         const settings = res.nmj_settings || {};
-        if (settings.theme) {
-          applyTheme(settings.theme === 'dark');
-        }
-        if (settings.customWallpaper !== undefined) {
-          applyWallpaper(settings.customWallpaper);
-        }
+        if (settings.theme) applyTheme(settings.theme === 'dark');
+        if (settings.uiOpacity !== undefined) applyOpacity(settings.uiOpacity, null);
+        if (settings.wallpaperOpacity !== undefined) applyOpacity(null, settings.wallpaperOpacity);
+        if (settings.customWallpaper !== undefined) applyWallpaper(settings.customWallpaper);
       });
 
       chrome.storage.onChanged.addListener((changes, area) => {
         if (area === 'local' && changes.nmj_settings && changes.nmj_settings.newValue) {
-          const newSettings = changes.nmj_settings.newValue;
-          if (newSettings.theme) {
-            applyTheme(newSettings.theme === 'dark');
-          }
-          if (newSettings.customWallpaper !== undefined) {
-            applyWallpaper(newSettings.customWallpaper);
-          }
+          const s = changes.nmj_settings.newValue;
+          if (s.theme) applyTheme(s.theme === 'dark');
+          if (s.uiOpacity !== undefined) applyOpacity(s.uiOpacity, null);
+          if (s.wallpaperOpacity !== undefined) applyOpacity(null, s.wallpaperOpacity);
+          if (s.customWallpaper !== undefined) applyWallpaper(s.customWallpaper);
         }
       });
     }
@@ -497,10 +525,49 @@
 
     const presetCards = document.querySelectorAll('.wp-preset-card');
 
+    const uiOpacitySlider = document.getElementById('uiOpacitySlider');
+    const uiOpacityVal = document.getElementById('uiOpacityVal');
+    const wpOpacitySlider = document.getElementById('wpOpacitySlider');
+    const wpOpacityVal = document.getElementById('wpOpacityVal');
+
+    let origUiOpacity = state.uiOpacity;
+    let origWpOpacity = state.wallpaperOpacity;
+
     if (!modal || !btnOpen) return;
+
+    function syncSliderDisplays() {
+      if (uiOpacitySlider) {
+        uiOpacitySlider.value = Math.round(state.uiOpacity * 100);
+        if (uiOpacityVal) uiOpacityVal.textContent = `${uiOpacitySlider.value}%`;
+      }
+      if (wpOpacitySlider) {
+        wpOpacitySlider.value = Math.round(state.wallpaperOpacity * 100);
+        if (wpOpacityVal) wpOpacityVal.textContent = `${wpOpacitySlider.value}%`;
+      }
+    }
+
+    if (uiOpacitySlider) {
+      uiOpacitySlider.addEventListener('input', (e) => {
+        const val = Number(e.target.value);
+        if (uiOpacityVal) uiOpacityVal.textContent = `${val}%`;
+        applyOpacity(val / 100, null);
+      });
+    }
+
+    if (wpOpacitySlider) {
+      wpOpacitySlider.addEventListener('input', (e) => {
+        const val = Number(e.target.value);
+        if (wpOpacityVal) wpOpacityVal.textContent = `${val}%`;
+        applyOpacity(null, val / 100);
+      });
+    }
 
     function openModal() {
       pendingWallpaperData = state.customWallpaper;
+      origUiOpacity = state.uiOpacity;
+      origWpOpacity = state.wallpaperOpacity;
+      syncSliderDisplays();
+
       if (pendingWallpaperData) {
         showPreview(pendingWallpaperData, '当前正在使用壁纸');
         if (pendingWallpaperData.startsWith('http')) {
@@ -521,11 +588,24 @@
     }
 
     btnOpen.addEventListener('click', openModal);
-    if (btnClose) btnClose.addEventListener('click', closeModal);
-    if (btnCancel) btnCancel.addEventListener('click', closeModal);
+    if (btnClose) {
+      btnClose.addEventListener('click', () => {
+        applyOpacity(origUiOpacity, origWpOpacity);
+        closeModal();
+      });
+    }
+    if (btnCancel) {
+      btnCancel.addEventListener('click', () => {
+        applyOpacity(origUiOpacity, origWpOpacity);
+        closeModal();
+      });
+    }
 
     modal.addEventListener('click', (e) => {
-      if (e.target === modal) closeModal();
+      if (e.target === modal) {
+        applyOpacity(origUiOpacity, origWpOpacity);
+        closeModal();
+      }
     });
 
     function switchTab(tabName) {
@@ -643,6 +723,8 @@
         applyWallpaper(pendingWallpaperData);
         saveSettings({
           customWallpaper: pendingWallpaperData,
+          uiOpacity: state.uiOpacity,
+          wallpaperOpacity: state.wallpaperOpacity,
           theme: state.isDarkTheme ? 'dark' : 'light'
         });
         closeModal();

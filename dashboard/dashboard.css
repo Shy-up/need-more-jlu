@@ -11,6 +11,9 @@
   --bg-surface-hover: rgba(32, 45, 75, 0.85);
   --bg-panel: rgba(18, 26, 43, 0.85);
   
+  --ui-opacity: 0.85;
+  --wp-opacity: 0.90;
+
   --border-subtle: rgba(255, 255, 255, 0.08);
   --border-focus: #38bdf8;
   --border-glow: rgba(56, 189, 248, 0.35);
@@ -1794,24 +1797,30 @@ body.theme-light .timeline-slot-dot:nth-child(8)::after {
 /* ==========================================================================
    Custom Wallpaper Support & Frosted Glass Glassmorphism
    ========================================================================== */
-body.has-custom-wallpaper {
-  background-size: cover !important;
-  background-position: center center !important;
-  background-repeat: no-repeat !important;
-  background-attachment: fixed !important;
+.wallpaper-bg-layer {
+  position: fixed;
+  inset: 0;
+  background-size: cover;
+  background-position: center center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  pointer-events: none;
+  z-index: 0;
+  opacity: var(--wp-opacity, 0.90);
+  transition: opacity 0.08s ease-out;
 }
 
 body.has-custom-wallpaper::before {
   content: '';
   position: fixed;
   inset: 0;
-  background: rgba(11, 15, 23, 0.40);
+  background: rgba(11, 15, 23, 0.35);
   pointer-events: none;
   z-index: 0;
 }
 
 body.has-custom-wallpaper.theme-light::before {
-  background: rgba(240, 244, 249, 0.35);
+  background: rgba(240, 244, 249, 0.30);
 }
 
 .dashboard-container {
@@ -1827,13 +1836,14 @@ body.has-custom-wallpaper .hidden-rooms-notice-card {
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.28);
+  transition: background 0.08s ease-out;
 }
 
 body.has-custom-wallpaper:not(.theme-light) .dash-header,
 body.has-custom-wallpaper:not(.theme-light) .control-panel,
 body.has-custom-wallpaper:not(.theme-light) .macro-section,
 body.has-custom-wallpaper:not(.theme-light) .micro-section {
-  background: rgba(18, 26, 43, 0.82);
+  background: rgba(18, 26, 43, var(--ui-opacity, 0.85));
   border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
@@ -1841,13 +1851,21 @@ body.has-custom-wallpaper.theme-light .dash-header,
 body.has-custom-wallpaper.theme-light .control-panel,
 body.has-custom-wallpaper.theme-light .macro-section,
 body.has-custom-wallpaper.theme-light .micro-section {
-  background: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, var(--ui-opacity, 0.85));
   border: 1px solid rgba(0, 59, 122, 0.16);
 }
 
 body.has-custom-wallpaper .room-cabin-cell {
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
+}
+
+body.has-custom-wallpaper:not(.theme-light) .room-cabin-cell {
+  background: rgba(23, 33, 56, calc(var(--ui-opacity, 0.85) * 0.88));
+}
+
+body.has-custom-wallpaper.theme-light .room-cabin-cell {
+  background: rgba(255, 255, 255, calc(var(--ui-opacity, 0.85) * 0.92));
 }
 
 /* Wallpaper Modal Overlay & Controls */
@@ -2154,6 +2172,82 @@ body.theme-light .sync-modal-card {
 .btn-secondary:hover {
   background: var(--bg-surface-hover);
 }
+
+/* Opacity Adjustment Sliders */
+.wp-sliders-section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+}
+
+.wp-slider-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.wp-slider-label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.wp-slider-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.wp-slider-val {
+  font-size: 13px;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+  color: #38bdf8;
+}
+
+body.theme-light .wp-slider-val {
+  color: #0284c7;
+}
+
+.wp-range-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--border-subtle);
+  outline: none;
+  cursor: pointer;
+}
+
+.wp-range-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #0284c7;
+  border: 2px solid #ffffff;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+  transition: transform 0.1s ease;
+}
+
+.wp-range-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+}
+
+.wp-slider-hints-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
 
 
 

@@ -30,6 +30,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnClearRead = document.getElementById('btn-clear-read');
   const btnExportStars = document.getElementById('btn-export-stars');
 
+  const optUiSlider = document.getElementById('opt-ui-opacity-slider');
+  const optUiVal = document.getElementById('opt-ui-opacity-val');
+  const optWpSlider = document.getElementById('opt-wp-opacity-slider');
+  const optWpVal = document.getElementById('opt-wp-opacity-val');
+
   let currentWallpaperData = '';
 
   // Load existing settings
@@ -54,6 +59,15 @@ document.addEventListener('DOMContentLoaded', () => {
       setSourceTab('dashboard');
     }
 
+    if (optUiSlider && settings.uiOpacity !== undefined) {
+      optUiSlider.value = Math.round(Number(settings.uiOpacity) * 100);
+      if (optUiVal) optUiVal.textContent = `${optUiSlider.value}%`;
+    }
+    if (optWpSlider && settings.wallpaperOpacity !== undefined) {
+      optWpSlider.value = Math.round(Number(settings.wallpaperOpacity) * 100);
+      if (optWpVal) optWpVal.textContent = `${optWpSlider.value}%`;
+    }
+
     accentColorInput.value = settings.customAccent || '#0284c7';
     accentHexSpan.textContent = accentColorInput.value;
     defaultUnreadCheck.checked = !!settings.onlyUnread;
@@ -61,6 +75,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     updateWallpaperVisibility();
   });
+
+  if (optUiSlider) {
+    optUiSlider.addEventListener('input', (e) => {
+      if (optUiVal) optUiVal.textContent = `${e.target.value}%`;
+    });
+  }
+  if (optWpSlider) {
+    optWpSlider.addEventListener('input', (e) => {
+      if (optWpVal) optWpVal.textContent = `${e.target.value}%`;
+    });
+  }
 
   themeSelect.addEventListener('change', () => {
     if (themeSelect.value === 'dashboard') {
@@ -220,6 +245,8 @@ document.addEventListener('DOMContentLoaded', () => {
       settings.customAccent = accentColorInput.value;
       settings.onlyUnread = defaultUnreadCheck.checked;
       settings.drawerEnabled = drawerCheck.checked;
+      if (optUiSlider) settings.uiOpacity = Number(optUiSlider.value) / 100;
+      if (optWpSlider) settings.wallpaperOpacity = Number(optWpSlider.value) / 100;
 
       chrome.storage.local.set({ nmj_settings: settings }, () => {
         saveStatus.style.display = 'inline';

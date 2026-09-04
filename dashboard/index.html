@@ -14,6 +14,9 @@
 </head>
 
 <body class="theme-light">
+  <!-- Dedicated Wallpaper Background Layer for Independent Opacity Control -->
+  <div id="wallpaperBgLayer" class="wallpaper-bg-layer" style="display: none;"></div>
+
   <div id="app" class="dashboard-container">
     <!-- Top Navigation Header: Campus, Time, Sync, Theme -->
     <header class="dash-header">
@@ -364,6 +367,33 @@
             </div>
             <div class="wp-preview-container">
               <img id="wpPreviewImg" src="" alt="壁纸预览">
+            </div>
+          </div>
+
+          <!-- Opacity & Visual Adjustment -->
+          <div class="wp-sliders-section">
+            <div class="wp-slider-row">
+              <div class="wp-slider-label-row">
+                <span class="wp-slider-label">🎨 界面面板不透明度</span>
+                <span class="wp-slider-val" id="uiOpacityVal">85%</span>
+              </div>
+              <input type="range" id="uiOpacitySlider" min="20" max="100" step="2" value="85" class="wp-range-slider">
+              <div class="wp-slider-hints-row">
+                <span>半透明毛玻璃</span>
+                <span>完全不透明</span>
+              </div>
+            </div>
+
+            <div class="wp-slider-row">
+              <div class="wp-slider-label-row">
+                <span class="wp-slider-label">🖼️ 壁纸透明度 / 浓度</span>
+                <span class="wp-slider-val" id="wpOpacityVal">90%</span>
+              </div>
+              <input type="range" id="wpOpacitySlider" min="10" max="100" step="2" value="90" class="wp-range-slider">
+              <div class="wp-slider-hints-row">
+                <span>微弱浅显</span>
+                <span>清晰浓郁</span>
+              </div>
             </div>
           </div>
 

@@ -79,6 +79,24 @@
                 🗑️ 移除当前壁纸
               </button>
             </div>
+        <!-- Opacity Settings in Options -->
+        <div style="margin-top: 14px; padding: 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; display: flex; flex-direction: column; gap: 12px;">
+          <div>
+            <div style="display: flex; justify-content: space-between; font-size: 13px; font-weight: 600; color: #1e293b; margin-bottom: 4px;">
+              <span>🎨 界面面板不透明度</span>
+              <span id="opt-ui-opacity-val" style="font-family: monospace; color: #0284c7;">85%</span>
+            </div>
+            <input type="range" id="opt-ui-opacity-slider" min="20" max="100" step="2" value="85" style="width: 100%; cursor: pointer;" />
+            <span class="help-text">调节仪表盘与卡片容器的毛玻璃通透程度</span>
+          </div>
+
+          <div>
+            <div style="display: flex; justify-content: space-between; font-size: 13px; font-weight: 600; color: #1e293b; margin-bottom: 4px;">
+              <span>🖼️ 壁纸透明度 / 浓度</span>
+              <span id="opt-wp-opacity-val" style="font-family: monospace; color: #0284c7;">90%</span>
+            </div>
+            <input type="range" id="opt-wp-opacity-slider" min="10" max="100" step="2" value="90" style="width: 100%; cursor: pointer;" />
+            <span class="help-text">调节背景壁纸独立透明度</span>
           </div>
         </div>
       </div>
