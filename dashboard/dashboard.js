@@ -53,7 +53,7 @@
       large: true,
       special: false
     },
-    isDarkTheme: true
+    isDarkTheme: false
   };
 
   // Structured room repository grouped by building: { '65': [], '73': [], '82': [] }
@@ -1115,12 +1115,9 @@
         // Tiered standard fixed size (with long name protection)
         applyRoomTierSizing(roomCell, room);
 
-        let icon = room.typeIcon || '🏛️';
-
         roomCell.innerHTML = `
           <div class="room-top-info">
             <span class="room-name-text">${room.number}</span>
-            <span class="room-type-icon">${icon}</span>
           </div>
           <div class="room-bottom-info">
             <span class="room-capacity">${room.capacity}座</span>

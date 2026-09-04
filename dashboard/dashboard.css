@@ -57,29 +57,47 @@
   --transition-normal: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Light Mode Overrides */
+/* Light Mode Overrides (JLU Signature White & Blue Palette) */
 body.theme-light {
-  --bg-primary: #f8fafc;
-  --bg-secondary: #edf2f7;
-  --bg-surface: rgba(255, 255, 255, 0.85);
-  --bg-surface-hover: rgba(255, 255, 255, 0.98);
-  --bg-panel: rgba(255, 255, 255, 0.92);
+  --bg-primary: #f0f4f9;
+  --bg-secondary: #e2e8f0;
+  --bg-surface: #ffffff;
+  --bg-surface-hover: #f8fafc;
+  --bg-panel: #ffffff;
 
-  --border-subtle: rgba(0, 0, 0, 0.08);
-  --border-focus: #0284c7;
-  --border-glow: rgba(2, 132, 199, 0.25);
+  --border-subtle: rgba(0, 59, 122, 0.1);
+  --border-focus: #00479d;
+  --border-glow: rgba(0, 71, 157, 0.25);
 
   --text-primary: #0f172a;
-  --text-secondary: #475569;
-  --text-muted: #94a3b8;
-  --text-highlight: #0284c7;
+  --text-secondary: #334155;
+  --text-muted: #64748b;
+  --text-highlight: #00479d;
 
-  --color-free-bg: rgba(16, 185, 129, 0.12);
-  --color-partial-bg: rgba(245, 158, 11, 0.12);
-  --color-busy-bg: rgba(239, 68, 68, 0.09);
-  --color-closed-bg: rgba(148, 163, 184, 0.15);
+  --color-free: #059669;
+  --color-free-bg: #ecfdf5;
+  --color-free-border: #a7f3d0;
+  --color-free-glow: rgba(16, 185, 129, 0.2);
 
-  --shadow-md: 0 8px 24px rgba(15, 23, 42, 0.08);
+  --color-partial: #d97706;
+  --color-partial-bg: #fffbeb;
+  --color-partial-border: #fde68a;
+  --color-partial-glow: rgba(245, 158, 11, 0.2);
+
+  --color-busy: #dc2626;
+  --color-busy-bg: #fef2f2;
+  --color-busy-border: #fecaca;
+
+  --color-closed: #64748b;
+  --color-closed-bg: #f1f5f9;
+  --color-closed-border: #cbd5e1;
+
+  --shadow-sm: 0 1px 3px rgba(0, 59, 122, 0.05);
+  --shadow-md: 0 4px 16px rgba(0, 59, 122, 0.08);
+
+  background-image: 
+    radial-gradient(circle at 10% 20%, rgba(0, 71, 157, 0.04) 0%, transparent 40%),
+    radial-gradient(circle at 90% 80%, rgba(2, 132, 199, 0.04) 0%, transparent 40%);
 }
 
 /* Base Styles */
@@ -992,25 +1010,25 @@ body {
   z-index: 10;
 }
 
-/* Tiered Fixed Sizes: Small, Medium, Large, Special */
+/* Tiered Fixed Sizes: Small (100px), Medium (150px = 1.5x Small), Large (300px = 2x Medium) */
 .room-cabin-cell.type-small {
-  width: 106px;
-  min-height: 68px;
+  width: 100px;
+  min-height: 72px;
 }
 
 .room-cabin-cell.type-medium {
-  width: 138px;
-  min-height: 74px;
+  width: 150px;
+  min-height: 72px;
 }
 
 .room-cabin-cell.type-large {
-  width: 176px;
-  min-height: 84px;
+  width: 300px;
+  min-height: 72px;
 }
 
 .room-cabin-cell.type-special {
-  width: 138px;
-  min-height: 74px;
+  width: 150px;
+  min-height: 72px;
   border-style: dashed;
 }
 
