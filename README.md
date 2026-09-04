@@ -47,8 +47,6 @@
   "code": "吉大教务系统该楼编码 (JXLDM)",
   "name": "校区-楼栋全称",
   "shortName": "显示简称",
-  "tag": "楼栋标签",
-  "totalFloors": 5,
   "description": "简要介绍"
 }
 ```
@@ -71,8 +69,7 @@ need_more_jlu/
 ├── content/
 │   ├── inject.js              # OA 页面「上次看到这里」红线与点击增强
 │   ├── drawer.js              # 原网页保真侧边滑出抽屉与附件解析
-│   ├── inject.css             # 抽屉与分界红线样式
-│   └── theme.css              # 主题基础变量
+│   └── inject.css             # 抽屉与分界红线样式
 ├── background/
 │   └── service_worker.js      # 教务系统 (cxkxjs.do) 异步数据代理与双通道探测
 ├── popup/

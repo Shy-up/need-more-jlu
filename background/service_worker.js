@@ -11,9 +11,10 @@ chrome.runtime.onInstalled.addListener(() => {
         nmj_settings: {
           theme: 'light',
           customWallpaper: '',
-          customAccent: '#0284c7',
-          onlyUnread: false,
-          drawerEnabled: true
+          oaToolsEnabled: true,
+          drawerEnabled: true,
+          seenDividerEnabled: true,
+          seenDividerIntervalHours: 0.25
         }
       });
     }

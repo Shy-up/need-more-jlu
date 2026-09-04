@@ -146,41 +146,6 @@ body {
   display: none;
 }
 
-/* Wallpaper source tabs & dropzone */
-.wallpaper-source-tabs {
-  display: flex;
-  gap: 16px;
-  margin-bottom: 8px;
-}
-
-.radio-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  color: #334155;
-  cursor: pointer;
-}
-
-.upload-dropzone {
-  border: 2px dashed #cbd5e1;
-  border-radius: 12px;
-  padding: 24px 16px;
-  text-align: center;
-  background: #f8fafc;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.upload-dropzone:hover, .upload-dropzone.dragover {
-  border-color: #0284c7;
-  background: #eff6ff;
-}
-
-.dropzone-content p {
-  margin: 4px 0;
-}
-
 .preset-pill-btn {
   background: #f1f5f9;
   border: 1px solid #cbd5e1;
@@ -203,5 +168,44 @@ body {
   color: #ffffff;
   border-color: #0284c7;
   font-weight: 600;
+}
+
+/* Dynamic Top Notification Toast */
+.toast-notification {
+  position: fixed;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-50px);
+  background: rgba(15, 23, 42, 0.94);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  color: #ffffff;
+  padding: 10px 22px;
+  border-radius: 30px;
+  font-size: 13.5px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(255, 255, 255, 0.12);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease;
+  z-index: 99999;
+}
+
+.toast-notification.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+  pointer-events: auto;
+}
+
+.toast-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 8px #10b981;
+  flex-shrink: 0;
 }
 

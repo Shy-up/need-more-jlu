@@ -62,6 +62,17 @@
   letter-spacing: 0.02em;
 }
 
+.nmj-seen-title {
+  color: #7f1d1d;
+  font-weight: 800;
+  max-width: 320px;
+  display: inline-block;
+  vertical-align: bottom;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* -------------------------------------------------------------
    Slide-out Authentic Native Drawer
    ------------------------------------------------------------- */

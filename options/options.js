@@ -1,47 +1,29 @@
 /**
  * need_more_jlu - Options Controller
- * Supports both local image file upload (Base64) and remote image URL for custom wallpapers.
+ * 专注于吉大 OA 官方增强工具箱的个性化配置：
+ * 1. 侧边抽屉浏览开关；
+ * 2. 「上次看到这里」隔离红线与基准时间窗口；
+ * 3. 实时自动保存与多标签页广播；
+ * 4. 仪表盘个性化外观（深浅色、壁纸、毛玻璃透明度）已归位至仪表盘内实时调节。
  */
 
 document.addEventListener('DOMContentLoaded', () => {
-  const themeSelect = document.getElementById('theme-select');
-  const wallpaperInputGroup = document.getElementById('wallpaper-input-group');
-  const dashboardContainer = document.getElementById('dashboard-wallpaper-container');
-  const localContainer = document.getElementById('local-wallpaper-container');
-  const urlContainer = document.getElementById('url-wallpaper-container');
-  const wallpaperUrlInput = document.getElementById('wallpaper-url');
-  const localFileInput = document.getElementById('local-wallpaper-file');
-  const uploadDropzone = document.getElementById('upload-dropzone');
-  const btnApplyDashboardBg = document.getElementById('btn-apply-dashboard-bg');
-  const previewBox = document.getElementById('wallpaper-preview-box');
-  const previewImg = document.getElementById('wallpaper-preview-img');
-  const fileInfoSpan = document.getElementById('wallpaper-file-info');
-  const btnRemoveWallpaper = document.getElementById('btn-remove-wallpaper');
-  const sourceRadios = document.querySelectorAll('input[name="wallpaper-source"]');
-
-  const DASHBOARD_BG_DATA = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080"><defs><radialGradient id="g1" cx="10%" cy="20%" r="50%"><stop offset="0%" stop-color="%2338bdf8" stop-opacity="0.10"/><stop offset="100%" stop-color="%230b0f17" stop-opacity="0"/></radialGradient><radialGradient id="g2" cx="90%" cy="80%" r="50%"><stop offset="0%" stop-color="%238b5cf6" stop-opacity="0.10"/><stop offset="100%" stop-color="%230b0f17" stop-opacity="0"/></radialGradient></defs><rect width="100%" height="100%" fill="%230b0f17"/><rect width="100%" height="100%" fill="url(%23g1)"/><rect width="100%" height="100%" fill="url(%23g2)"/></svg>';
-
-  const accentColorInput = document.getElementById('accent-color');
-  const accentHexSpan = document.getElementById('accent-hex');
-  const defaultUnreadCheck = document.getElementById('default-unread');
   const oaToolsCheck = document.getElementById('oa-tools-enabled');
   const oaSubOptions = document.getElementById('oa-sub-options');
   const drawerCheck = document.getElementById('drawer-preview-enabled');
-  const btnSave = document.getElementById('btn-save');
-  const saveStatus = document.getElementById('save-status');
-  const btnClearRead = document.getElementById('btn-clear-read');
-  const btnExportStars = document.getElementById('btn-export-stars');
-
-  const optUiSlider = document.getElementById('opt-ui-opacity-slider');
-  const optUiVal = document.getElementById('opt-ui-opacity-val');
-  const optWpSlider = document.getElementById('opt-wp-opacity-slider');
-  const optWpVal = document.getElementById('opt-wp-opacity-val');
-
+  const seenDividerCheck = document.getElementById('seen-divider-enabled');
+  const seenDividerSubOptions = document.getElementById('seen-divider-sub-options');
   const dividerIntervalSlider = document.getElementById('opt-divider-interval-slider');
   const dividerIntervalVal = document.getElementById('opt-divider-interval-val');
   const presetPillBtns = document.querySelectorAll('.preset-pill-btn');
+  const currentBaselineTitle = document.getElementById('current-baseline-title');
+  const currentBaselineTime = document.getElementById('current-baseline-time');
+  const btnClearRead = document.getElementById('btn-clear-read');
+  const toastNotification = document.getElementById('toast-notification');
+  const toastMessage = document.getElementById('toast-message');
 
-  let currentWallpaperData = '';
+  let saveDebounceTimer = null;
+  let feedbackTimer = null;
 
   function formatIntervalText(hours) {
     const h = Number(hours);
@@ -70,74 +52,125 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  if (dividerIntervalSlider) {
-    dividerIntervalSlider.addEventListener('input', (e) => {
-      const val = Number(e.target.value);
-      if (dividerIntervalVal) dividerIntervalVal.textContent = formatIntervalText(val);
-      updatePresetPills(val);
-    });
-  }
-
-  presetPillBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      const val = Number(btn.dataset.hours);
-      if (dividerIntervalSlider) {
-        dividerIntervalSlider.value = val;
-        if (dividerIntervalVal) dividerIntervalVal.textContent = formatIntervalText(val);
-        updatePresetPills(val);
-      }
-    });
-  });
-
   function updateOaSubOptionsVisibility() {
     if (oaSubOptions && oaToolsCheck) {
-      oaSubOptions.style.opacity = oaToolsCheck.checked ? '1' : '0.4';
-      oaSubOptions.style.pointerEvents = oaToolsCheck.checked ? 'auto' : 'none';
-      if (drawerCheck) drawerCheck.disabled = !oaToolsCheck.checked;
-      if (dividerIntervalSlider) dividerIntervalSlider.disabled = !oaToolsCheck.checked;
+      const masterOn = oaToolsCheck.checked;
+      oaSubOptions.style.opacity = masterOn ? '1' : '0.4';
+      oaSubOptions.style.pointerEvents = masterOn ? 'auto' : 'none';
+      if (drawerCheck) drawerCheck.disabled = !masterOn;
+      if (seenDividerCheck) seenDividerCheck.disabled = !masterOn;
+    }
+    updateSeenDividerVisibility();
+  }
+
+  function updateSeenDividerVisibility() {
+    if (seenDividerSubOptions && seenDividerCheck) {
+      const masterOn = oaToolsCheck ? oaToolsCheck.checked : true;
+      const dividerOn = masterOn && seenDividerCheck.checked;
+      seenDividerSubOptions.style.opacity = dividerOn ? '1' : '0.4';
+      seenDividerSubOptions.style.pointerEvents = dividerOn ? 'auto' : 'none';
+      if (dividerIntervalSlider) dividerIntervalSlider.disabled = !dividerOn;
+      presetPillBtns.forEach(btn => btn.disabled = !dividerOn);
     }
   }
 
-  if (oaToolsCheck) {
-    oaToolsCheck.addEventListener('change', updateOaSubOptionsVisibility);
-  }
+  function formatRelativeTime(timestamp) {
+    if (!timestamp) return '';
+    const diffMs = Date.now() - timestamp;
+    const diffMins = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-  // Load existing settings
-  chrome.storage.local.get(['nmj_settings', 'nmj_star_map'], (res) => {
-    const settings = res.nmj_settings || {};
-    themeSelect.value = settings.theme || 'light';
-    currentWallpaperData = settings.customWallpaper || '';
-
-    if (currentWallpaperData) {
-      if (currentWallpaperData === DASHBOARD_BG_DATA || currentWallpaperData.includes('radialGradient') || currentWallpaperData.includes('0b0f17')) {
-        setSourceTab('dashboard');
-        showPreview(currentWallpaperData, '插件自带仪表盘背景');
-      } else if (currentWallpaperData.startsWith('data:')) {
-        setSourceTab('local');
-        showPreview(currentWallpaperData, '本地上传图片');
-      } else {
-        setSourceTab('url');
-        wallpaperUrlInput.value = currentWallpaperData;
-        showPreview(currentWallpaperData, '网络图片链接');
-      }
+    if (diffMins < 60) {
+      return `${Math.max(1, diffMins)} 分钟前记录`;
+    } else if (diffHours < 24) {
+      return `${diffHours} 小时前记录`;
+    } else if (diffDays === 1) {
+      const d = new Date(timestamp);
+      return `昨天 ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')} 记录`;
     } else {
-      setSourceTab('dashboard');
+      return `${diffDays} 天前记录`;
     }
+  }
 
-    if (optUiSlider && settings.uiOpacity !== undefined) {
-      optUiSlider.value = Math.round(Number(settings.uiOpacity) * 100);
-      if (optUiVal) optUiVal.textContent = `${optUiSlider.value}%`;
-    }
-    if (optWpSlider && settings.wallpaperOpacity !== undefined) {
-      optWpSlider.value = Math.round(Number(settings.wallpaperOpacity) * 100);
-      if (optWpVal) optWpVal.textContent = `${optWpSlider.value}%`;
-    }
+  function refreshBaselineDisplay() {
+    if (!currentBaselineTitle) return;
 
-    accentColorInput.value = settings.customAccent || '#0284c7';
-    if (accentHexSpan) accentHexSpan.textContent = accentColorInput.value;
-    if (defaultUnreadCheck) defaultUnreadCheck.checked = !!settings.onlyUnread;
+    chrome.storage.local.get(['nmj_oa_last_visit'], (res) => {
+      let visit = res.nmj_oa_last_visit;
+      if (!visit) {
+        try {
+          const stored = localStorage.getItem('nmj_oa_last_visit');
+          if (stored) visit = JSON.parse(stored);
+        } catch (e) { }
+      }
+
+      if (visit && (visit.topTitle || visit.topId)) {
+        currentBaselineTitle.textContent = visit.topTitle ? `《${visit.topTitle}》` : `公文ID: ${visit.topId}`;
+        if (currentBaselineTime && visit.time) {
+          currentBaselineTime.textContent = `· ${formatRelativeTime(visit.time)}`;
+        }
+      } else {
+        currentBaselineTitle.textContent = '暂无记录（首次进入 OA 时将自动确立）';
+        if (currentBaselineTime) currentBaselineTime.textContent = '';
+      }
+    });
+  }
+
+  // --- Real-time Auto-Save Engine (Dynamic Top Notification) ---
+  function showAutoSaveFeedback(msg = '设置已保存') {
+    if (!toastNotification) return;
+    if (toastMessage) toastMessage.textContent = msg;
+    toastNotification.classList.add('show');
+    clearTimeout(feedbackTimer);
+    feedbackTimer = setTimeout(() => {
+      toastNotification.classList.remove('show');
+    }, 1800);
+  }
+
+  function saveSettings() {
+    chrome.storage.local.get(['nmj_settings'], (res) => {
+      const settings = res.nmj_settings || {};
+      if (oaToolsCheck) settings.oaToolsEnabled = oaToolsCheck.checked;
+      if (drawerCheck) settings.drawerEnabled = drawerCheck.checked;
+      if (seenDividerCheck) settings.seenDividerEnabled = seenDividerCheck.checked;
+      if (dividerIntervalSlider) settings.seenDividerIntervalHours = Number(dividerIntervalSlider.value);
+
+      chrome.storage.local.set({ nmj_settings: settings }, () => {
+        try {
+          localStorage.setItem('nmj_settings', JSON.stringify(settings));
+        } catch (e) { }
+
+        showAutoSaveFeedback();
+
+        // Broadcast to all open JLU tabs to apply immediately
+        chrome.tabs.query({}, (tabs) => {
+          tabs.forEach(tab => {
+            if (tab.id && tab.url && tab.url.includes('jlu.edu.cn')) {
+              chrome.tabs.sendMessage(tab.id, {
+                action: 'update_settings',
+                settings: settings
+              }, () => {
+                if (chrome.runtime.lastError) { }
+              });
+            }
+          });
+        });
+      });
+    });
+  }
+
+  function debounceSave(delay = 250) {
+    clearTimeout(saveDebounceTimer);
+    saveDebounceTimer = setTimeout(saveSettings, delay);
+  }
+
+  // --- Load existing settings ---
+  chrome.storage.local.get(['nmj_settings'], (res) => {
+    const settings = res.nmj_settings || {};
     if (oaToolsCheck) oaToolsCheck.checked = settings.oaToolsEnabled !== false;
     if (drawerCheck) drawerCheck.checked = settings.drawerEnabled !== false;
+    if (seenDividerCheck) seenDividerCheck.checked = settings.seenDividerEnabled !== false;
 
     const intervalHours = (settings.seenDividerIntervalHours !== undefined)
       ? Number(settings.seenDividerIntervalHours)
@@ -149,224 +182,58 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     updateOaSubOptionsVisibility();
-
-    updateWallpaperVisibility();
+    refreshBaselineDisplay();
   });
 
-  if (optUiSlider) {
-    optUiSlider.addEventListener('input', (e) => {
-      if (optUiVal) optUiVal.textContent = `${e.target.value}%`;
-    });
-  }
-  if (optWpSlider) {
-    optWpSlider.addEventListener('input', (e) => {
-      if (optWpVal) optWpVal.textContent = `${e.target.value}%`;
+  // --- Attach Real-Time Auto-Save Listeners ---
+  if (oaToolsCheck) {
+    oaToolsCheck.addEventListener('change', () => {
+      updateOaSubOptionsVisibility();
+      saveSettings();
     });
   }
 
-  themeSelect.addEventListener('change', () => {
-    if (themeSelect.value === 'dashboard') {
-      currentWallpaperData = DASHBOARD_BG_DATA;
-      setSourceTab('dashboard');
-      showPreview(currentWallpaperData, '插件自带仪表盘背景');
-    }
-    updateWallpaperVisibility();
-  });
-
-  function updateWallpaperVisibility() {
-    // Keep wallpaper configuration visible and responsive
-    wallpaperInputGroup.style.display = 'block';
+  if (drawerCheck) {
+    drawerCheck.addEventListener('change', saveSettings);
   }
 
-  // Source Radio Switch
-  sourceRadios.forEach(radio => {
-    radio.addEventListener('change', (e) => {
-      setSourceTab(e.target.value);
-    });
-  });
-
-  function setSourceTab(source) {
-    sourceRadios.forEach(r => r.checked = (r.value === source));
-    if (dashboardContainer) dashboardContainer.style.display = (source === 'dashboard') ? 'block' : 'none';
-    if (localContainer) localContainer.style.display = (source === 'local') ? 'block' : 'none';
-    if (urlContainer) urlContainer.style.display = (source === 'url') ? 'block' : 'none';
-  }
-
-  if (btnApplyDashboardBg) {
-    btnApplyDashboardBg.addEventListener('click', () => {
-      currentWallpaperData = DASHBOARD_BG_DATA;
-      showPreview(currentWallpaperData, '插件自带仪表盘背景');
-      themeSelect.value = 'custom';
-      btnApplyDashboardBg.textContent = '✓ 已设为自定义背景';
-      setTimeout(() => {
-        btnApplyDashboardBg.textContent = '设为当前壁纸';
-      }, 1500);
+  if (seenDividerCheck) {
+    seenDividerCheck.addEventListener('change', () => {
+      updateSeenDividerVisibility();
+      saveSettings();
     });
   }
 
-  // Dropzone click -> trigger file picker
-  uploadDropzone.addEventListener('click', () => {
-    localFileInput.click();
-  });
-
-  // Drag and Drop
-  uploadDropzone.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    uploadDropzone.classList.add('dragover');
-  });
-
-  uploadDropzone.addEventListener('dragleave', () => {
-    uploadDropzone.classList.remove('dragover');
-  });
-
-  uploadDropzone.addEventListener('drop', (e) => {
-    e.preventDefault();
-    uploadDropzone.classList.remove('dragover');
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleImageFile(e.dataTransfer.files[0]);
-    }
-  });
-
-  localFileInput.addEventListener('change', (e) => {
-    if (e.target.files && e.target.files[0]) {
-      handleImageFile(e.target.files[0]);
-    }
-  });
-
-  // URL Input listener
-  wallpaperUrlInput.addEventListener('input', (e) => {
-    const val = e.target.value.trim();
-    if (val) {
-      currentWallpaperData = val;
-      showPreview(val, '网络图片链接');
-      themeSelect.value = 'custom';
-    } else {
-      currentWallpaperData = '';
-      previewBox.style.display = 'none';
-    }
-  });
-
-  // Remove Wallpaper
-  btnRemoveWallpaper.addEventListener('click', () => {
-    currentWallpaperData = '';
-    wallpaperUrlInput.value = '';
-    localFileInput.value = '';
-    previewBox.style.display = 'none';
-    if (themeSelect.value === 'custom') {
-      themeSelect.value = 'light';
-    }
-  });
-
-  // Read and optimize local image
-  function handleImageFile(file) {
-    if (!file.type.startsWith('image/')) {
-      alert('请选择有效的图片文件 (JPG / PNG / WEBP)！');
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = function(evt) {
-      const rawDataUrl = evt.target.result;
-      
-      // Optimize image size (resize to max 2560px for performance if large)
-      const img = new Image();
-      img.onload = function() {
-        const maxDimension = 2560;
-        let width = img.width;
-        let height = img.height;
-
-        if (width > maxDimension || height > maxDimension) {
-          if (width > height) {
-            height = Math.round((height * maxDimension) / width);
-            width = maxDimension;
-          } else {
-            width = Math.round((width * maxDimension) / height);
-            height = maxDimension;
-          }
-
-          const canvas = document.createElement('canvas');
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0, width, height);
-          currentWallpaperData = canvas.toDataURL('image/jpeg', 0.88);
-        } else {
-          currentWallpaperData = rawDataUrl;
-        }
-
-        const sizeKb = Math.round(currentWallpaperData.length * 0.75 / 1024);
-        showPreview(currentWallpaperData, `本地图片 (${file.name}, 约 ${sizeKb}KB)`);
-        themeSelect.value = 'custom';
-      };
-      img.src = rawDataUrl;
-    };
-    reader.readAsDataURL(file);
+  if (dividerIntervalSlider) {
+    dividerIntervalSlider.addEventListener('input', (e) => {
+      const val = Number(e.target.value);
+      if (dividerIntervalVal) dividerIntervalVal.textContent = formatIntervalText(val);
+      updatePresetPills(val);
+      debounceSave(150);
+    });
   }
 
-  function showPreview(src, label) {
-    previewImg.src = src;
-    fileInfoSpan.textContent = label;
-    previewBox.style.display = 'block';
-  }
-
-  accentColorInput.addEventListener('input', (e) => {
-    accentHexSpan.textContent = e.target.value;
-  });
-
-  // Save Settings
-  btnSave.addEventListener('click', () => {
-    chrome.storage.local.get(['nmj_settings'], (res) => {
-      const settings = res.nmj_settings || {};
-      settings.theme = themeSelect.value;
-      settings.customWallpaper = currentWallpaperData;
-      settings.customAccent = accentColorInput.value;
-      if (defaultUnreadCheck) settings.onlyUnread = defaultUnreadCheck.checked;
-      if (oaToolsCheck) settings.oaToolsEnabled = oaToolsCheck.checked;
-      if (drawerCheck) settings.drawerEnabled = drawerCheck.checked;
-      if (dividerIntervalSlider) settings.seenDividerIntervalHours = Number(dividerIntervalSlider.value);
-      if (optUiSlider) settings.uiOpacity = Number(optUiSlider.value) / 100;
-      if (optWpSlider) settings.wallpaperOpacity = Number(optWpSlider.value) / 100;
-
-      chrome.storage.local.set({ nmj_settings: settings }, () => {
-        // Also sync to localStorage fallback
-        try {
-          localStorage.setItem('nmj_settings', JSON.stringify(settings));
-        } catch (e) {}
-
-        saveStatus.style.display = 'inline';
-        setTimeout(() => {
-          saveStatus.style.display = 'none';
-        }, 2000);
-
-        // Broadcast to all open JLU tabs to apply immediately
-        chrome.tabs.query({}, (tabs) => {
-          tabs.forEach(tab => {
-            if (tab.id && tab.url && (tab.url.includes('jlu.edu.cn'))) {
-              chrome.tabs.sendMessage(tab.id, {
-                action: 'update_settings',
-                settings: settings,
-                theme: settings.theme,
-                wallpaper: settings.customWallpaper,
-                accent: settings.customAccent
-              }, () => {
-                if (chrome.runtime.lastError) {
-                  // Ignore tabs without content script
-                }
-              });
-            }
-          });
-        });
-      });
+  presetPillBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const val = Number(btn.dataset.hours);
+      if (dividerIntervalSlider) {
+        dividerIntervalSlider.value = val;
+        if (dividerIntervalVal) dividerIntervalVal.textContent = formatIntervalText(val);
+        updatePresetPills(val);
+      }
+      saveSettings();
     });
   });
-
 
   // Clear Last-Seen Divider
   if (btnClearRead) {
     btnClearRead.addEventListener('click', () => {
-      if (confirm('确定要重置「上次看到这里」红线记录吗？下次打开 OA 将以当前最新通知作为起点。')) {
+      if (confirm('确定要重置「上次看到这里」红线记录吗？下次打开 OA 将以当前最新通知重新作为起点。')) {
         localStorage.removeItem('nmj_oa_last_visit');
-        alert('已重置红线基准！');
+        chrome.storage.local.remove(['nmj_oa_last_visit'], () => {
+          refreshBaselineDisplay();
+          showAutoSaveFeedback('红线记录已重置');
+        });
       }
     });
   }

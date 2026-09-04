@@ -8,16 +8,13 @@
       "id": "nanling",
       "code": "02",
       "name": "南岭校区",
-      "shortName": "南岭 (工科)",
-      "tag": "老工大",
+      "shortName": "南岭",
       "buildings": [
         {
           "id": "65",
           "code": "65",
           "name": "南岭-逸夫楼",
           "shortName": "逸夫楼",
-          "tag": "工科主力",
-          "totalFloors": 7,
           "description": "南岭校区核心教学楼"
         },
         {
@@ -25,8 +22,6 @@
           "code": "73",
           "name": "南岭-(一)",
           "shortName": "第一教学楼",
-          "tag": "一教",
-          "totalFloors": 5,
           "description": "南岭校区第一教学楼"
         },
         {
@@ -34,8 +29,6 @@
           "code": "82",
           "name": "南岭-(二)",
           "shortName": "第二教学楼",
-          "tag": "二教",
-          "totalFloors": 5,
           "description": "南岭校区第二教学楼"
         }
       ]

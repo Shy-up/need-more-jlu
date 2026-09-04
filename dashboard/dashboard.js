@@ -331,12 +331,11 @@
             id: 'nanling',
             code: '02',
             name: '南岭校区',
-            shortName: '南岭 (工科)',
-            tag: '已实测验证',
+            shortName: '南岭',
             buildings: [
-              { id: '65', code: '65', name: '南岭-逸夫楼', shortName: '逸夫楼', tag: '工科主力', totalFloors: 7 },
-              { id: '73', code: '73', name: '南岭-(一)', shortName: '第一教学楼', tag: '一教', totalFloors: 5 },
-              { id: '82', code: '82', name: '南岭-(二)', shortName: '第二教学楼', tag: '二教', totalFloors: 5 }
+              { id: '65', code: '65', name: '南岭-逸夫楼', shortName: '逸夫楼' },
+              { id: '73', code: '73', name: '南岭-(一)', shortName: '第一教学楼' },
+              { id: '82', code: '82', name: '南岭-(二)', shortName: '第二教学楼' }
             ]
           }
         ]
@@ -356,7 +355,7 @@
     campusConfig.campuses.forEach(camp => {
       const opt = document.createElement('option');
       opt.value = camp.code;
-      opt.textContent = `${camp.name} (${camp.tag || ''})`;
+      opt.textContent = camp.name;
       if (camp.code === savedCampusCode) opt.selected = true;
       campusSelect.appendChild(opt);
     });
@@ -403,6 +402,10 @@
   let pendingWallpaperData = '';
 
   function applyWallpaper(wallpaperData) {
+    if (wallpaperData && (wallpaperData.includes('radialGradient id="g1"') || (wallpaperData.includes('0b0f17') && wallpaperData.startsWith('data:image/svg')))) {
+      wallpaperData = '';
+      try { localStorage.removeItem('nmj_custom_wallpaper'); } catch (e) { }
+    }
     state.customWallpaper = wallpaperData || '';
     const bgLayer = document.getElementById('wallpaperBgLayer');
     if (state.customWallpaper) {
@@ -1462,7 +1465,6 @@
       card.innerHTML = `
         <div class="bldg-card-header">
           <span class="bldg-name">${bldg.shortName}</span>
-          <span class="bldg-floors-tag">${bldg.tag || ''} · ${bldg.totalFloors || 5}层</span>
         </div>
         <div class="bldg-stats-row">
           <div class="bldg-free-count">${freeCount} <small>/ ${validRooms.length} 间可用</small></div>

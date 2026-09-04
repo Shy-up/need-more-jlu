@@ -18,6 +18,7 @@
   let currentSettings = {
     oaToolsEnabled: true,
     drawerEnabled: true,
+    seenDividerEnabled: true,
     seenDividerIntervalHours: 0.25
   };
 
@@ -30,6 +31,7 @@
         const s = result.nmj_settings || {};
         currentSettings.oaToolsEnabled = s.oaToolsEnabled !== false;
         currentSettings.drawerEnabled = s.drawerEnabled !== false;
+        currentSettings.seenDividerEnabled = s.seenDividerEnabled !== false;
         currentSettings.seenDividerIntervalHours = (s.seenDividerIntervalHours !== undefined)
           ? Number(s.seenDividerIntervalHours)
           : 0.25;
@@ -42,6 +44,7 @@
           const s = JSON.parse(stored);
           currentSettings.oaToolsEnabled = s.oaToolsEnabled !== false;
           currentSettings.drawerEnabled = s.drawerEnabled !== false;
+          currentSettings.seenDividerEnabled = s.seenDividerEnabled !== false;
           currentSettings.seenDividerIntervalHours = (s.seenDividerIntervalHours !== undefined)
             ? Number(s.seenDividerIntervalHours)
             : 0.25;
@@ -126,6 +129,11 @@
 
   // 2. 「上次看到这里」隔离红线逻辑
   function insertLastSeenDivider() {
+    if (!currentSettings.seenDividerEnabled) {
+      document.querySelectorAll('.nmj-seen-divider-tr').forEach(el => el.remove());
+      return;
+    }
+
     // Avoid duplicate dividers
     if (document.querySelector('.nmj-seen-divider-tr')) return;
 
@@ -150,6 +158,7 @@
     const firstHref = firstRegularLink.getAttribute('href') || '';
     const firstIdMatch = firstHref.match(/id=([0-9a-zA-Z_-]+)/);
     const currentTopId = firstIdMatch ? firstIdMatch[1] : null;
+    const currentTopTitle = firstRegularLink ? firstRegularLink.innerText.trim() : '';
 
     let lastVisit = null;
     try {
@@ -174,11 +183,15 @@
         const timeDiffStr = formatRelativeTime(lastVisit.time);
         const dividerTr = document.createElement('tr');
         dividerTr.className = 'nmj-seen-divider-tr';
+        const titleHtml = lastVisit.topTitle
+          ? `看到《<span class="nmj-seen-title" title="${escapeHtml(lastVisit.topTitle)}">${escapeHtml(lastVisit.topTitle)}</span>》`
+          : `看到这里`;
+
         dividerTr.innerHTML = `
           <td colspan="100%" class="nmj-seen-divider-td">
             <div class="nmj-seen-divider-inner">
               <span class="nmj-seen-divider-flag">🚩</span>
-              <span class="nmj-seen-divider-text">上次查看（${timeDiffStr}）看到这里，以上为新发布的校内公文</span>
+              <span class="nmj-seen-divider-text">上次查看（${timeDiffStr}）${titleHtml}，以上为新发布的校内公文</span>
               <span class="nmj-seen-divider-flag">🚩</span>
             </div>
           </td>
@@ -200,10 +213,15 @@
 
           // Only update if no previous record, or topId differs, or elapsed interval has passed
           if (!prev || prev.topId !== currentTopId || (Date.now() - (prev.time || 0) >= intervalMs)) {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify({
+            const record = {
               topId: currentTopId,
+              topTitle: currentTopTitle,
               time: Date.now()
-            }));
+            };
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(record));
+            if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+              chrome.storage.local.set({ nmj_oa_last_visit: record });
+            }
           }
         } catch (e) { }
       };
@@ -213,6 +231,14 @@
       });
       window.addEventListener('beforeunload', commitVisit);
     }
+  }
+
+  function escapeHtml(str) {
+    return (str || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
   }
 
   function formatRelativeTime(timestamp) {
@@ -255,12 +281,20 @@
       if (request.action === 'update_settings' && request.settings) {
         currentSettings.oaToolsEnabled = request.settings.oaToolsEnabled !== false;
         currentSettings.drawerEnabled = request.settings.drawerEnabled !== false;
+        if (request.settings.seenDividerEnabled !== undefined) {
+          currentSettings.seenDividerEnabled = request.settings.seenDividerEnabled !== false;
+        }
         if (request.settings.seenDividerIntervalHours !== undefined) {
           currentSettings.seenDividerIntervalHours = Number(request.settings.seenDividerIntervalHours);
         }
 
         if (currentSettings.oaToolsEnabled) {
           applyEnhancements();
+          if (!currentSettings.seenDividerEnabled) {
+            document.querySelectorAll('.nmj-seen-divider-tr').forEach(el => el.remove());
+          } else if (!document.querySelector('.nmj-seen-divider-tr')) {
+            insertLastSeenDivider();
+          }
         } else {
           teardown();
         }
