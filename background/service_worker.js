@@ -97,7 +97,7 @@ async function handleFetchTimeline(payload = {}) {
       ...payload,
       startSection: slotNum,
       endSection: slotNum,
-      pageSize: 400
+      pageSize: 600
     }).then(res => ({
       slot: slotNum,
       res
@@ -219,7 +219,7 @@ async function handleFetchClassrooms(payload = {}) {
     { name: "KXRQ", caption: "空闲日期", linkOpt: "AND", builderList: "cbl_Other", builder: "equal", value: queryDate },
     { name: "KXJC", caption: "空闲节次", builder: "lessEqual", linkOpt: "AND", builderList: "cbl_Other", value: String(startSection) },
     { name: "KXJC", caption: "空闲节次", linkOpt: "AND", builderList: "cbl_String", builder: "moreEqual", value: String(startSection) },
-    { name: "XXXQDM", value: campusCode, linkOpt: "AND", builder: "equal" },
+    { name: "XXXQDM", value: campusCode, linkOpt: "AND", builder: "m_value_equal" },
     { name: "JXLDM", value: finalBuildingCode, linkOpt: "AND", builder: "m_value_equal" },
     { name: "JASLXDM", value: roomTypes, linkOpt: "AND", builder: "m_value_equal" },
     { name: "KXRQ", value: queryDate, linkOpt: "AND", builder: "equal" },

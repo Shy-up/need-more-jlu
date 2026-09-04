@@ -10,11 +10,21 @@ document.addEventListener('DOMContentLoaded', () => {
   // Load campus memory
   const campusKey = localStorage.getItem('nmj_campus') || '02';
   const campusNames = {
-    '02': '南岭校区 (工科)',
-    'nanling': '南岭校区 (工科)'
+    '01': '前卫校区',
+    'qianwei': '前卫校区',
+    '02': '南岭校区',
+    'nanling': '南岭校区',
+    '03': '新民校区',
+    'xinmin': '新民校区',
+    '04': '朝阳校区',
+    'chaoyang': '朝阳校区',
+    '05': '南湖校区',
+    'nanhu': '南湖校区',
+    '06': '和平校区',
+    'heping': '和平校区'
   };
   if (popupCampusName) {
-    popupCampusName.textContent = campusNames[campusKey] || '南岭校区 (工科)';
+    popupCampusName.textContent = campusNames[campusKey] || '南岭校区';
   }
 
   // Open Classroom Study Dashboard

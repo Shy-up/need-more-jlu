@@ -917,19 +917,23 @@
     const webvpnHash = '/https/48714f71342f7a336d582f7e2857373756c9770f46c0c2b0ff87560d5a42f1';
     const url = `https://vpn.jlu.edu.cn${webvpnHash}/jwapp/sys/kxjas/modules/kxjscx/cxkxjs.do?vpn-12-o2-iedu.jlu.edu.cn`;
 
+    const campusCode = payload.campusCode || state.campusCode || '02';
+    const buildingCode = payload.buildingCode || currentBuildings.map(b => b.code).join(',') || '65,82,73';
+    const campusName = currentCampus ? currentCampus.name : '南岭校区';
+    const buildingNames = currentBuildings.length > 0 ? currentBuildings.map(b => b.name).join(',') : '逸夫楼,第二教学楼,第一教学楼';
     const roomTypes = '03,02,01,04,05,06,13,08,09,10,11,12,07';
 
     try {
       const promises = slots.map(async (slotNum) => {
         const querySetting = [
-          { name: "XXXQDM", caption: "学校校区", linkOpt: "AND", builderList: "cbl_m_List", builder: "m_value_equal", value: "02", value_display: "南岭校区" },
-          { name: "JXLDM", caption: "教学楼", linkOpt: "AND", builderList: "cbl_m_List", builder: "m_value_equal", value: "65,82,73", value_display: "南岭-逸夫楼,南岭-(二),南岭-(一)" },
+          { name: "XXXQDM", caption: "学校校区", linkOpt: "AND", builderList: "cbl_m_List", builder: "m_value_equal", value: campusCode, value_display: campusName },
+          { name: "JXLDM", caption: "教学楼", linkOpt: "AND", builderList: "cbl_m_List", builder: "m_value_equal", value: buildingCode, value_display: buildingNames },
           { name: "JASLXDM", caption: "教室类型", linkOpt: "AND", builderList: "cbl_m_List", builder: "m_value_equal", value: roomTypes, value_display: "公用资源,体育馆,多媒体,制图教室,多功能设计教室,体育场,运动场,操场,普通,画室,计算机房,语音室,实验室" },
           { name: "KXRQ", caption: "空闲日期", linkOpt: "AND", builderList: "cbl_Other", builder: "equal", value: payload.date },
           { name: "KXJC", caption: "空闲节次", builder: "lessEqual", linkOpt: "AND", builderList: "cbl_Other", value: String(slotNum) },
           { name: "KXJC", caption: "空闲节次", linkOpt: "AND", builderList: "cbl_String", builder: "moreEqual", value: String(slotNum) },
-          { name: "XXXQDM", value: "02", linkOpt: "AND", builder: "equal" },
-          { name: "JXLDM", value: "65,82,73", linkOpt: "AND", builder: "m_value_equal" },
+          { name: "XXXQDM", value: campusCode, linkOpt: "AND", builder: "m_value_equal" },
+          { name: "JXLDM", value: buildingCode, linkOpt: "AND", builder: "m_value_equal" },
           { name: "JASLXDM", value: roomTypes, linkOpt: "AND", builder: "m_value_equal" },
           { name: "KXRQ", value: payload.date, linkOpt: "AND", builder: "equal" },
           { name: "JSJC", value: String(slotNum), linkOpt: "AND", builder: "equal" },
@@ -938,15 +942,15 @@
         ];
 
         const params = new URLSearchParams();
-        params.append('XXXQDM', '02');
-        params.append('JXLDM', '65,82,73');
+        params.append('XXXQDM', campusCode);
+        params.append('JXLDM', buildingCode);
         params.append('JASLXDM', roomTypes);
         params.append('KXRQ', payload.date);
         params.append('KSJC', String(slotNum));
         params.append('JSJC', String(slotNum));
         params.append('KXJC', String(slotNum));
         params.append('querySetting', JSON.stringify(querySetting));
-        params.append('pageSize', '400');
+        params.append('pageSize', '600');
         params.append('pageNumber', '1');
 
         const resp = await fetch(url, {
@@ -2059,8 +2063,8 @@
         message: errorResult?.message || '无法获取真实排课',
         targetUrl: 'cxkxjs.do',
         targetDate: state.queryDate,
-        targetCampus: '南岭校区 (02)',
-        targetBuildings: '逸夫楼(65), 一教(73), 二教(82)'
+        targetCampus: `${currentCampus ? currentCampus.name : '校区'} (${state.campusCode})`,
+        targetBuildings: currentBuildings.map(b => `${b.shortName}(${b.code})`).slice(0, 5).join(', ') + (currentBuildings.length > 5 ? ` 等共${currentBuildings.length}栋` : '')
       }, null, 2);
     }
   }
