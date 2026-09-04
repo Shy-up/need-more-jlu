@@ -1,12 +1,13 @@
 /**
  * need_more_jlu - Study Classroom Dashboard Script (100% Real Data Architecture)
- * 严守“真实教务直出、零伪造模拟、非真实即阻断报错”原则。
+ * 裁剪精耕：聚焦南岭校区三大核心教学楼（逸夫楼 65、一教 73、二教 82）。
+ * 架构核心：并发全拉 1~12 节切片，端侧重构全天排课时间轴，严格隐藏全天有课/无数据教室。
  */
 
 (function() {
   'use strict';
 
-  // Standard JLU Class Session Definitions
+  // Standard JLU Class Session Definitions (1~12 slots)
   const SESSION_SLOTS = [
     { slot: 1, name: '第1节', time: '08:00-08:45', start: '08:00', end: '08:45', period: 'morning' },
     { slot: 2, name: '第2节', time: '08:50-09:35', start: '08:50', end: '09:35', period: 'morning' },
@@ -22,56 +23,17 @@
     { slot: 12, name: '第12节', time: '20:35-21:20', start: '20:35', end: '21:20', period: 'evening' }
   ];
 
-  // Campus Data Mapping (Real JLU EMAP codes)
-  const CAMPUS_DATA = {
-    nanling: {
-      name: '南岭校区（工科）',
-      code: '02',
-      buildings: [
-        { id: '65', name: '南岭-逸夫楼', jxldm: '65', code: 'YF', totalFloors: 7, defaultFav: true }
-      ]
-    },
-    qianwei: {
-      name: '前卫南区（中心）',
-      code: '01',
-      buildings: [
-        { id: '11', name: '前卫-李四光楼', jxldm: '11', code: 'LSG', totalFloors: 5, defaultFav: true }
-      ]
-    },
-    chaoyang: {
-      name: '朝阳校区（地质）',
-      code: '03',
-      buildings: [
-        { id: '31', name: '朝阳-地质宫', jxldm: '31', code: 'DZG', totalFloors: 5 }
-      ]
-    },
-    xinmin: {
-      name: '新民校区（医学）',
-      code: '04',
-      buildings: [
-        { id: '41', name: '新民-第一教学楼', jxldm: '41', code: 'XM1', totalFloors: 5 }
-      ]
-    },
-    nanhu: {
-      name: '南湖校区（信息）',
-      code: '05',
-      buildings: [
-        { id: '51', name: '南湖-第一教学楼', jxldm: '51', code: 'NH1', totalFloors: 5 }
-      ]
-    },
-    heping: {
-      name: '和平校区（农学）',
-      code: '06',
-      buildings: [
-        { id: '61', name: '和平-主楼', jxldm: '61', code: 'HPZ', totalFloors: 5 }
-      ]
-    }
-  };
+  // Nanling Trio Core Buildings (Explicitly Focused & Verified)
+  const NANLING_BUILDINGS = [
+    { id: '65', code: '65', name: '南岭-逸夫楼', shortName: '逸夫楼', tag: '工科主力', totalFloors: 7 },
+    { id: '73', code: '73', name: '南岭-(一)', shortName: '第一教学楼', tag: '一教', totalFloors: 5 },
+    { id: '82', code: '82', name: '南岭-(二)', shortName: '第二教学楼', tag: '二教', totalFloors: 5 }
+  ];
 
-  // Helper to sanitize buildingId (legacy mock used 'yifu', real JLU EMAP requires numeric code '65')
+  // Helper to sanitize buildingId
   function getSanitizedBuildingId() {
     let saved = localStorage.getItem('nmj_building');
-    if (!saved || saved === 'yifu' || !/^\d+$/.test(saved)) {
+    if (!saved || saved === 'yifu' || !['65', '73', '82'].includes(saved)) {
       saved = '65';
       localStorage.setItem('nmj_building', '65');
     }
@@ -80,11 +42,11 @@
 
   // State
   let state = {
-    campus: localStorage.getItem('nmj_campus') || 'nanling',
+    campusCode: '02', // Nanling
     buildingId: getSanitizedBuildingId(),
     queryDate: getTodayString(),
     activePreset: 'now', // 'now' | 'afternoon' | 'evening' | 'marathon' | 'custom'
-    selectedSlots: [1], // will be calculated based on current time or preset
+    selectedSlots: [1],
     hideLabs: true,
     outletOnly: false,
     largeRoomOnly: false,
@@ -92,10 +54,12 @@
     isDarkTheme: true
   };
 
-  // Real data store (Strictly populated from cxkxjs.do only!)
-  let realRawRows = [];
-  let realClassrooms = [];
-  let lastQueryMeta = null;
+  // Structured room repository grouped by building: { '65': [], '73': [], '82': [] }
+  let buildingRoomsMap = {
+    '65': [],
+    '73': [],
+    '82': []
+  };
 
   function getTodayString() {
     const d = new Date();
@@ -105,7 +69,6 @@
     return `${year}-${month}-${day}`;
   }
 
-  // Determine current active section slot from live time
   function getCurrentTimeSlot() {
     const now = new Date();
     const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
@@ -114,7 +77,7 @@
         return s.slot;
       }
     }
-    return 1; // Default to 1st slot if evening or before 8:00
+    return 1;
   }
 
   // Initialization
@@ -127,34 +90,19 @@
     initHoverCard();
     startClock();
 
-    // Trigger initial real fetch
-    loadRealClassroomData();
+    // Trigger parallel full fetch
+    loadParallelTimelineData();
   }
 
   // Header Elements & Clock
   function bindHeaderEvents() {
-    const campusSelect = document.getElementById('campusSelect');
-    if (campusSelect) {
-      campusSelect.value = state.campus;
-      campusSelect.addEventListener('change', (e) => {
-        state.campus = e.target.value;
-        localStorage.setItem('nmj_campus', state.campus);
-
-        const bldgs = CAMPUS_DATA[state.campus]?.buildings || [];
-        state.buildingId = bldgs[0]?.jxldm || '65';
-        localStorage.setItem('nmj_building', state.buildingId);
-
-        loadRealClassroomData();
-      });
-    }
-
     const queryDateInput = document.getElementById('queryDateInput');
     if (queryDateInput) {
       queryDateInput.value = state.queryDate;
       queryDateInput.addEventListener('change', (e) => {
         if (e.target.value) {
           state.queryDate = e.target.value;
-          loadRealClassroomData();
+          loadParallelTimelineData();
         }
       });
     }
@@ -171,15 +119,14 @@
     const syncDataBtn = document.getElementById('syncDataBtn');
     if (syncDataBtn) {
       syncDataBtn.addEventListener('click', () => {
-        loadRealClassroomData();
+        loadParallelTimelineData();
       });
     }
 
-    // Hard-fail barrier action buttons
     const btnRetry = document.getElementById('btnRetryRealFetch');
     if (btnRetry) {
       btnRetry.addEventListener('click', () => {
-        loadRealClassroomData();
+        loadParallelTimelineData();
       });
     }
 
@@ -233,37 +180,29 @@
   }
 
   // ==========================================================================
-  // Real Data Engine (Zero Fake Data Guarantee)
+  // Parallel 1~12 Full Fetch & Merge Engine
   // ==========================================================================
 
-  async function loadRealClassroomData() {
-    updateBadgeState('loading', '正在直连吉大教务处 (cxkxjs.do)...');
+  async function loadParallelTimelineData() {
+    updateBadgeState('loading', '正在并发拉取南岭三大楼 1~12 节全天切片...');
     showLoadingPanel(true);
     hideBarrierPanel();
     hideContentArea();
 
-    const startSlot = Math.min(...state.selectedSlots) || 1;
-    const endSlot = Math.max(...state.selectedSlots) || 1;
-    const campusCode = CAMPUS_DATA[state.campus]?.code || '02';
-    const buildingCode = state.buildingId || '65';
-
     const payload = {
-      campusCode,
-      buildingCode,
+      campusCode: '02',
+      buildingCode: '65,82,73', // Nanling Trio
       date: state.queryDate,
-      startSection: startSlot,
-      endSection: endSlot,
-      cleanOnly: state.hideLabs,
-      pageSize: 300
+      slots: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
     };
 
     let result = null;
 
-    // 1. Try Extension Service Worker Bridge first (auto includes WebVPN cookies)
+    // 1. Send to background service worker (executes 12 parallel requests via Promise.all)
     if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
       try {
         result = await new Promise((resolve) => {
-          chrome.runtime.sendMessage({ type: 'FETCH_CLASSROOMS', payload }, (res) => {
+          chrome.runtime.sendMessage({ type: 'FETCH_TIMELINE', payload }, (res) => {
             if (chrome.runtime.lastError) {
               resolve({ success: false, error: chrome.runtime.lastError.message });
             } else {
@@ -272,186 +211,180 @@
           });
         });
       } catch (err) {
-        console.warn('[need_more_jlu] chrome.runtime.sendMessage 尝试失败:', err);
+        console.warn('[need_more_jlu] chrome.runtime.sendMessage 失败，尝试直接 fetch:', err);
       }
     }
 
-    // 2. Direct fetch fallback if running directly in WebVPN page
+    // 2. Direct fallback
     if (!result || !result.success) {
-      result = await directFetchClassrooms(payload);
+      result = await directFetchParallelTimeline(payload);
     }
 
     showLoadingPanel(false);
 
-    // Hard-Fail Check:
-    if (!result || !result.success || !Array.isArray(result.rows)) {
+    // Hard-Fail Check
+    if (!result || !result.success || !Array.isArray(result.slotsData)) {
       showHardFailBarrier(result);
       return;
     }
 
-    // Success! 100% Real Data processing
-    realRawRows = result.rows;
-    lastQueryMeta = result.queryMeta || payload;
-    processRealClassrooms(realRawRows);
+    // Merge 12 slices into real building maps
+    mergeAndProcessTimeline(result.slotsData);
   }
 
-  async function directFetchClassrooms(payload) {
-    const { campusCode, buildingCode, date, startSection, endSection, cleanOnly, pageSize = 300 } = payload;
-    const finalBuildingCode = (!buildingCode || buildingCode === 'yifu' || !/^\d+$/.test(buildingCode)) ? '65' : buildingCode;
-    const roomTypes = cleanOnly ? '01,08' : '03,02,01,04,05,06,13,08,09,10,11,12,07';
-
-    const querySetting = [
-      { name: "XXXQDM", value: campusCode, linkOpt: "AND", builder: "equal" },
-      { name: "JXLDM", value: finalBuildingCode, linkOpt: "AND", builder: "equal" },
-      { name: "JASLXDM", value: roomTypes, linkOpt: "AND", builder: "m_value_equal" },
-      { name: "KXRQ", value: date, linkOpt: "AND", builder: "equal" },
-      { name: "KSJC", value: String(startSection), linkOpt: "AND", builder: "equal" },
-      { name: "JSJC", value: String(endSection), linkOpt: "AND", builder: "equal" },
-      { name: "KXJC", value: String(startSection), linkOpt: "AND", builder: "moreEqual" },
-      { name: "KXJC", value: String(endSection), linkOpt: "AND", builder: "lessEqual" }
-    ];
-
-    const params = new URLSearchParams();
-    params.append('XXXQDM', campusCode);
-    params.append('JXLDM', finalBuildingCode);
-    params.append('JASLXDM', roomTypes);
-    params.append('KXRQ', date);
-    params.append('KSJC', String(startSection));
-    params.append('JSJC', String(endSection));
-    params.append('KXJC', String(startSection));
-    params.append('querySetting', JSON.stringify(querySetting));
-    params.append('pageSize', String(pageSize));
-    params.append('pageNumber', '1');
-
+  async function directFetchParallelTimeline(payload) {
+    const slots = payload.slots || [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
     const webvpnHash = '/https/48714f71342f7a336d582f7e2857373756c9770f46c0c2b0ff87560d5a42f1';
     const url = `https://vpn.jlu.edu.cn${webvpnHash}/jwapp/sys/kxjas/modules/kxjscx/cxkxjs.do?vpn-12-o2-iedu.jlu.edu.cn`;
 
+    const roomTypes = '03,02,01,04,05,06,13,08,09,10,11,12,07';
+
     try {
-      const resp = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-          'X-Requested-With': 'XMLHttpRequest'
-        },
-        body: params.toString()
+      const promises = slots.map(async (slotNum) => {
+        const querySetting = [
+          { name: "XXXQDM", caption: "学校校区", linkOpt: "AND", builderList: "cbl_m_List", builder: "m_value_equal", value: "02", value_display: "南岭校区" },
+          { name: "JXLDM", caption: "教学楼", linkOpt: "AND", builderList: "cbl_m_List", builder: "m_value_equal", value: "65,82,73", value_display: "南岭-逸夫楼,南岭-(二),南岭-(一)" },
+          { name: "JASLXDM", caption: "教室类型", linkOpt: "AND", builderList: "cbl_m_List", builder: "m_value_equal", value: roomTypes, value_display: "公用资源,体育馆,多媒体,制图教室,多功能设计教室,体育场,运动场,操场,普通,画室,计算机房,语音室,实验室" },
+          { name: "KXRQ", caption: "空闲日期", linkOpt: "AND", builderList: "cbl_Other", builder: "equal", value: payload.date },
+          { name: "KXJC", caption: "空闲节次", builder: "lessEqual", linkOpt: "AND", builderList: "cbl_Other", value: String(slotNum) },
+          { name: "KXJC", caption: "空闲节次", linkOpt: "AND", builderList: "cbl_String", builder: "moreEqual", value: String(slotNum) },
+          { name: "XXXQDM", value: "02", linkOpt: "AND", builder: "equal" },
+          { name: "JXLDM", value: "65,82,73", linkOpt: "AND", builder: "m_value_equal" },
+          { name: "JASLXDM", value: roomTypes, linkOpt: "AND", builder: "m_value_equal" },
+          { name: "KXRQ", value: payload.date, linkOpt: "AND", builder: "equal" },
+          { name: "JSJC", value: String(slotNum), linkOpt: "AND", builder: "equal" },
+          { name: "KXJC", value: String(slotNum), linkOpt: "AND", builder: "equal" },
+          { name: "KSJC", value: String(slotNum), linkOpt: "AND", builder: "equal" }
+        ];
+
+        const params = new URLSearchParams();
+        params.append('XXXQDM', '02');
+        params.append('JXLDM', '65,82,73');
+        params.append('JASLXDM', roomTypes);
+        params.append('KXRQ', payload.date);
+        params.append('KSJC', String(slotNum));
+        params.append('JSJC', String(slotNum));
+        params.append('KXJC', String(slotNum));
+        params.append('querySetting', JSON.stringify(querySetting));
+        params.append('pageSize', '400');
+        params.append('pageNumber', '1');
+
+        const resp = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+            'X-Requested-With': 'XMLHttpRequest'
+          },
+          body: params.toString()
+        });
+
+        if (!resp.ok) return { slot: slotNum, rows: [] };
+        const text = await resp.text();
+        if (text.includes('<!DOCTYPE html>') || text.includes('login')) {
+          throw new Error('UNAUTHENTICATED');
+        }
+        const json = JSON.parse(text);
+        return { slot: slotNum, rows: json?.datas?.cxkxjs?.rows || [] };
       });
 
-      if (!resp.ok) {
-        return { success: false, error: 'HTTP_' + resp.status, message: `接口返回 HTTP ${resp.status}` };
-      }
-
-      const text = await resp.text();
-      if (text.includes('<!DOCTYPE html>') || text.includes('<html') || text.includes('统一身份认证') || text.includes('login')) {
-        return {
-          success: false,
-          error: 'UNAUTHENTICATED',
-          message: 'WebVPN 未登录或认证会话已过期，请登录 WebVPN'
-        };
-      }
-
-      const json = JSON.parse(text);
-      const rows = json?.datas?.cxkxjs?.rows;
-      if (!Array.isArray(rows)) {
-        return { success: false, error: 'NO_ROWS', message: '教务系统未返回有效的 rows 列表' };
-      }
-
-      return { success: true, rows, totalSize: json?.datas?.cxkxjs?.totalSize };
+      const slotsData = await Promise.all(promises);
+      return { success: true, slotsData };
     } catch (err) {
-      return { success: false, error: 'NETWORK_FAIL', message: err.message };
+      return {
+        success: false,
+        error: err.message === 'UNAUTHENTICATED' ? 'UNAUTHENTICATED' : 'NETWORK_FAIL',
+        message: err.message
+      };
     }
-  }
-
-  // Hard-Fail Barrier Rendering (Zero Fake Data Guarantee)
-  function showHardFailBarrier(errorResult) {
-    realRawRows = [];
-    realClassrooms = [];
-
-    hideContentArea();
-    hideLoadingPanel();
-
-    const barrierEl = document.getElementById('realDataBarrierPanel');
-    if (!barrierEl) return;
-
-    barrierEl.style.display = 'flex';
-    updateBadgeState('disconnected', '教务未直连 · 拒绝假数据');
-
-    const titleEl = document.getElementById('barrierTitle');
-    const subtitleEl = document.getElementById('barrierSubtitle');
-    const diagTextEl = document.getElementById('barrierDiagnosticsText');
-
-    if (errorResult?.error === 'UNAUTHENTICATED') {
-      titleEl.textContent = '🔒 WebVPN 会话未激活或已过期';
-      subtitleEl.innerHTML = `
-        仪表盘严守 <strong>100% 真实教务数据</strong> 原则，绝不使用任何随机模拟假数据误导自习。<br>
-        请先点击下方按钮登录吉大 WebVPN，登录成功后点击“重新拉取”。
-      `;
-    } else {
-      titleEl.textContent = '⚠️ 无法获取吉大教务处实时排课数据';
-      subtitleEl.innerHTML = `
-        接口通信失败或校园网连接中断。<strong>系统已坚决阻断界面渲染</strong>，以防虚假数据误导自习决策。
-      `;
-    }
-
-    if (diagTextEl) {
-      diagTextEl.textContent = JSON.stringify({
-        timestamp: new Date().toLocaleString(),
-        status: 'HARD_FAIL_BLOCKED',
-        error: errorResult?.error || 'UNKNOWN_ERROR',
-        message: errorResult?.message || '无法获取真实排课',
-        targetUrl: 'cxkxjs.do',
-        targetDate: state.queryDate,
-        targetCampus: state.campus,
-        targetBuilding: state.buildingId
-      }, null, 2);
-    }
-  }
-
-  function hideBarrierPanel() {
-    const el = document.getElementById('realDataBarrierPanel');
-    if (el) el.style.display = 'none';
-  }
-
-  function showLoadingPanel(show) {
-    const el = document.getElementById('realDataLoadingPanel');
-    if (el) el.style.display = show ? 'flex' : 'none';
-  }
-
-  function hideLoadingPanel() {
-    showLoadingPanel(false);
-  }
-
-  function showContentArea() {
-    const el = document.getElementById('realDataContentArea');
-    if (el) el.style.display = 'block';
-  }
-
-  function hideContentArea() {
-    const el = document.getElementById('realDataContentArea');
-    if (el) el.style.display = 'none';
-  }
-
-  function updateBadgeState(status, text) {
-    const badge = document.getElementById('realDataBadge');
-    const textEl = document.getElementById('realDataBadgeText');
-    if (!badge || !textEl) return;
-
-    badge.className = `real-data-badge ${status}`;
-    textEl.textContent = text;
   }
 
   // ==========================================================================
-  // Real Data Parser & Cabin Mapping
+  // Client-Side Merge: Slices -> Full Timeline per Room
   // ==========================================================================
 
-  function parseRealRoom(row) {
+  function mergeAndProcessTimeline(slotsData) {
+    // Reset room store
+    buildingRoomsMap = {
+      '65': [],
+      '73': [],
+      '82': []
+    };
+
+    const roomDict = new Map(); // roomId -> room
+
+    slotsData.forEach(({ slot, rows }) => {
+      if (!Array.isArray(rows)) return;
+
+      rows.forEach(row => {
+        const roomId = row.JASMC;
+        if (!roomId) return;
+
+        // Determine building: 65 (逸夫楼), 73 (一教), 82 (二教)
+        let bCode = String(row.JXLDM || '');
+        if (!bCode || bCode === 'null') {
+          if (row.JASMC.includes('逸夫')) bCode = '65';
+          else if (row.JASMC.includes('(一)') || row.JASMC.includes('一教')) bCode = '73';
+          else if (row.JASMC.includes('(二)') || row.JASMC.includes('二教')) bCode = '82';
+          else bCode = '65';
+        }
+
+        if (!roomDict.has(roomId)) {
+          const roomObj = parseRealRoom(row, bCode);
+          // 12-slot schedule: true = busy / occupied, false = free
+          roomObj.schedule = new Array(12).fill(true);
+          roomObj.freeSlotsCount = 0;
+          roomDict.set(roomId, roomObj);
+        }
+
+        const room = roomDict.get(roomId);
+        // Mark this slot as confirmed free!
+        if (slot >= 1 && slot <= 12) {
+          room.schedule[slot - 1] = false;
+          room.freeSlotsCount++;
+        }
+      });
+    });
+
+    // Populate building buckets
+    let totalRoomsFound = 0;
+    roomDict.forEach(room => {
+      totalRoomsFound++;
+      if (buildingRoomsMap[room.buildingCode]) {
+        buildingRoomsMap[room.buildingCode].push(room);
+      } else {
+        buildingRoomsMap['65'].push(room);
+      }
+    });
+
+    // Sort rooms within each building by floor (desc) and room number (asc)
+    Object.keys(buildingRoomsMap).forEach(k => {
+      buildingRoomsMap[k].sort((a, b) => {
+        if (b.floor !== a.floor) return b.floor - a.floor;
+        return a.number.localeCompare(b.number);
+      });
+    });
+
+    // Update Real Data Badge
+    updateBadgeState('connected', `🟢 100% 真实教务直出 · 12节切片重构完成 (${totalRoomsFound} 间实存教室)`);
+
+    showContentArea();
+    updateBuildingMacroCards();
+    renderFloorCabinMap();
+  }
+
+  function parseRealRoom(row, bCode) {
     const fullName = row.JASMC || '';
-    // Extract floor and room number: e.g. "南岭-逸夫楼-A103", "南岭-逸夫楼-B713", "逸夫楼-201"
+    // Match floor and short room number
     const match = fullName.match(/([A-Za-z]?)([1-9])(\d{2})/);
     let floor = 1;
     let shortNumber = fullName;
     if (match) {
       floor = parseInt(match[2], 10);
       shortNumber = (match[1] || '') + match[2] + match[3];
+    } else {
+      // Fallback floor extraction
+      const fMatch = fullName.match(/(\d)层/);
+      if (fMatch) floor = parseInt(fMatch[1], 10);
     }
 
     const capacity = row.SKZWS || row.KSZWS || 60;
@@ -463,41 +396,101 @@
       name: fullName,
       number: shortNumber,
       floor: floor,
+      buildingCode: bCode,
       capacity: capacity,
       examCapacity: row.KSZWS || 0,
       typeDisplay: row.JASLXDM_DISPLAY || '普通',
       type: isLab ? 'lab' : (isLecture ? 'lecture' : 'medium'),
       isClosed: isLab,
-      freeSlotText: row.KXJC || '',
-      timeRangeText: row.KXSJ || '',
-      buildingName: row.JXLDM_DISPLAY || '逸夫楼',
-      buildingCode: row.JXLDM || '65',
       hasOutlets: (floor % 2 === 1 || isLecture),
       hasAC: true,
-      deskType: isLecture ? '阶梯宽平桌' : '独立双人桌',
-      isFree: true
+      deskType: isLecture ? '阶梯宽平桌' : '独立双人桌'
     };
   }
 
-  function processRealClassrooms(rows) {
-    // Group unique rooms
-    const roomMap = new Map();
-    rows.forEach(r => {
-      const parsed = parseRealRoom(r);
-      if (!roomMap.has(parsed.id)) {
-        roomMap.set(parsed.id, parsed);
+  // ==========================================================================
+  // Consecutive Safety Index Calculation
+  // ==========================================================================
+
+  function calculateRoomSafety(room, currentActiveSlot) {
+    const isFreeNow = !room.schedule[currentActiveSlot - 1];
+
+    if (!isFreeNow) {
+      // Find next free slot today
+      let nextFreeSlot = -1;
+      for (let s = currentActiveSlot + 1; s <= 12; s++) {
+        if (!room.schedule[s - 1]) {
+          nextFreeSlot = s;
+          break;
+        }
       }
+      return {
+        isFree: false,
+        status: 'busy',
+        consecutiveCount: 0,
+        text: nextFreeSlot > -1
+          ? `🔴 当前有课！预计 ${SESSION_SLOTS[nextFreeSlot - 1].start} (${SESSION_SLOTS[nextFreeSlot - 1].name}) 结课空闲`
+          : `🔴 当前节次有课，今日后续无连续空闲`,
+        badgeText: '上课中'
+      };
+    }
+
+    // Free right now! Count continuous free slots
+    let count = 0;
+    let endSlot = currentActiveSlot;
+    for (let s = currentActiveSlot; s <= 12; s++) {
+      if (!room.schedule[s - 1]) {
+        count++;
+        endSlot = s;
+      } else {
+        break;
+      }
+    }
+
+    const endTime = SESSION_SLOTS[endSlot - 1].end;
+    if (count >= 4) {
+      return {
+        isFree: true,
+        status: 'safe',
+        consecutiveCount: count,
+        text: `🟢 连坐极佳！当前空闲，可安心连续自习至 ${endTime}（连续 ${count} 节无课）`,
+        badgeText: `连坐 ${count} 节`
+      };
+    } else if (count >= 2) {
+      return {
+        isFree: true,
+        status: 'moderate',
+        consecutiveCount: count,
+        text: `🟡 当前空闲至 ${endTime}（连坐 ${count} 节），请注意 ${endTime} 后有课`,
+        badgeText: `连空 ${count} 节`
+      };
+    } else {
+      const nextStart = SESSION_SLOTS[currentActiveSlot] ? SESSION_SLOTS[currentActiveSlot].start : endTime;
+      return {
+        isFree: true,
+        status: 'warn',
+        consecutiveCount: 1,
+        text: `⚠️ 临近有课！当前节次空闲，但下节 (${nextStart}) 即有课，请勿深扎`,
+        badgeText: '仅剩1节'
+      };
+    }
+  }
+
+  function getRoomFilterStatus(room, selectedSlots) {
+    if (room.isClosed) return 'status-closed';
+
+    let freeCount = 0;
+    selectedSlots.forEach(s => {
+      if (!room.schedule[s - 1]) freeCount++;
     });
 
-    realClassrooms = Array.from(roomMap.values());
-
-    // Update real badge with actual numbers
-    const cleanRoomsCount = realClassrooms.filter(r => !r.isClosed).length;
-    updateBadgeState('connected', `🟢 100% 真实教务直出 (${cleanRoomsCount} 间实存空闲)`);
-
-    showContentArea();
-    updateBuildingMacroCards();
-    renderFloorCabinMap();
+    if (freeCount === selectedSlots.length) {
+      return 'status-free'; // All selected slots free
+    } else if (freeCount === 0) {
+      return 'status-busy'; // All occupied
+    } else {
+      return 'status-partial'; // Partially free
+    }
   }
 
   // ==========================================================================
@@ -509,36 +502,56 @@
     if (!grid) return;
     grid.innerHTML = '';
 
-    const campus = CAMPUS_DATA[state.campus];
-    if (!campus) return;
+    let campusTotalRooms = 0;
+    let campusTotalFree = 0;
 
-    // Filter valid rooms for current campus
-    const validRooms = realClassrooms.filter(r => !r.isClosed);
-    const freeCount = validRooms.length;
+    NANLING_BUILDINGS.forEach(bldg => {
+      const rooms = buildingRoomsMap[bldg.id] || [];
+      const validRooms = rooms.filter(r => !r.isClosed);
+      let freeCount = 0;
 
-    const bldgName = campus.buildings[0]?.name || '逸夫楼';
-    const totalFloors = campus.buildings[0]?.totalFloors || 7;
+      validRooms.forEach(r => {
+        if (getRoomFilterStatus(r, state.selectedSlots) === 'status-free') {
+          freeCount++;
+        }
+      });
 
-    const card = document.createElement('div');
-    card.className = 'bldg-card selected';
-    card.innerHTML = `
-      <div class="bldg-card-header">
-        <span class="bldg-name">${bldgName}</span>
-        <span class="bldg-floors-tag">教务实时直连</span>
-      </div>
-      <div class="bldg-stats-row">
-        <div class="bldg-free-count">${freeCount} <small>间真实空闲</small></div>
-        <div class="bldg-percentage-ring">100%</div>
-      </div>
-      <div class="bldg-progress-bar">
-        <div class="bldg-progress-fill" style="width: 100%;"></div>
-      </div>
-    `;
-    grid.appendChild(card);
+      campusTotalRooms += validRooms.length;
+      campusTotalFree += freeCount;
+
+      const percentage = validRooms.length > 0 ? Math.round((freeCount / validRooms.length) * 100) : 0;
+      const isSelected = (bldg.id === state.buildingId);
+
+      const card = document.createElement('div');
+      card.className = `bldg-card ${isSelected ? 'selected' : ''}`;
+      card.innerHTML = `
+        <div class="bldg-card-header">
+          <span class="bldg-name">${bldg.shortName}</span>
+          <span class="bldg-floors-tag">${bldg.tag} · ${bldg.totalFloors}层</span>
+        </div>
+        <div class="bldg-stats-row">
+          <div class="bldg-free-count">${freeCount} <small>/ ${validRooms.length} 间可用</small></div>
+          <div class="bldg-percentage-ring">${percentage}%</div>
+        </div>
+        <div class="bldg-progress-bar">
+          <div class="bldg-progress-fill" style="width: ${percentage}%;"></div>
+        </div>
+      `;
+
+      card.addEventListener('click', () => {
+        state.buildingId = bldg.id;
+        localStorage.setItem('nmj_building', state.buildingId);
+        updateBuildingMacroCards();
+        renderFloorCabinMap();
+      });
+
+      grid.appendChild(card);
+    });
 
     const campusSummaryEl = document.getElementById('macroCampusSummary');
     if (campusSummaryEl) {
-      campusSummaryEl.textContent = `${campus.name} · ${bldgName} · 当前所选时段经教务处验证空闲教室共 ${freeCount} 间`;
+      const campusPercentage = campusTotalRooms > 0 ? Math.round((campusTotalFree / campusTotalRooms) * 100) : 0;
+      campusSummaryEl.textContent = `南岭校区三大教学楼 · 所选节次综合空闲率 ${campusPercentage}% (可用 ${campusTotalFree} / 总计 ${campusTotalRooms} 间)`;
     }
   }
 
@@ -547,26 +560,33 @@
     if (!container) return;
     container.innerHTML = '';
 
-    const campus = CAMPUS_DATA[state.campus];
-    const bldg = campus?.buildings[0] || { name: '逸夫楼', code: 'YF' };
-
-    document.getElementById('currentBuildingTitle').textContent = `${bldg.name} (${bldg.code})`;
+    const currentBldg = NANLING_BUILDINGS.find(b => b.id === state.buildingId) || NANLING_BUILDINGS[0];
+    
+    document.getElementById('currentBuildingTitle').textContent = `${currentBldg.shortName} (${currentBldg.name})`;
     document.getElementById('currentBuildingSub').textContent = `日期：${state.queryDate} · 选定第 ${state.selectedSlots.join(',')} 节 · 空间舱位直出`;
 
-    // Filter based on user preferences
-    let visibleRooms = realClassrooms.filter(r => {
+    const allRooms = buildingRoomsMap[currentBldg.id] || [];
+    
+    // Filter rooms based on toggles
+    let visibleRooms = allRooms.filter(r => {
       if (state.hideLabs && r.isClosed) return false;
       if (state.outletOnly && !r.hasOutlets) return false;
       if (state.largeRoomOnly && r.type !== 'lecture') return false;
       return true;
     });
 
+    // Update active rooms count badge
+    const badgeEl = document.getElementById('activeRoomsCountBadge');
+    if (badgeEl) {
+      badgeEl.textContent = `当前楼栋共 ${visibleRooms.length} 间可用`;
+    }
+
     if (visibleRooms.length === 0) {
       container.innerHTML = `
         <div style="text-align: center; padding: 60px 20px; color: var(--text-secondary);">
           <div style="font-size: 36px; margin-bottom: 12px;">🔍</div>
-          <div style="font-size: 16px; font-weight: 700; color: var(--text-primary);">该时段所选条件无空闲教室</div>
-          <div style="font-size: 13px; margin-top: 6px;">经教务系统实时核验，此时段该楼栋教室均已排课占用或无可用空闲。</div>
+          <div style="font-size: 16px; font-weight: 700; color: var(--text-primary);">该楼栋此时段暂无空闲教室</div>
+          <div style="font-size: 13px; margin-top: 6px;">全天有课或教务系统未开放排课的教室已自动隐藏，请切换节次或查看其他楼栋。</div>
         </div>
       `;
       return;
@@ -594,7 +614,7 @@
       floorRow.innerHTML = `
         <div class="floor-badge-column">
           <div class="floor-num">${floorNum}F</div>
-          <div class="floor-desc">${roomsOnFloor.length} 间空闲</div>
+          <div class="floor-desc">${roomsOnFloor.length} 间教室</div>
         </div>
         <div class="floor-rooms-grid" id="floor-grid-${floorNum}"></div>
       `;
@@ -602,13 +622,20 @@
       const gridEl = floorRow.querySelector(`#floor-grid-${floorNum}`);
 
       roomsOnFloor.forEach(room => {
+        const statusClass = getRoomFilterStatus(room, state.selectedSlots);
+        const safety = calculateRoomSafety(room, state.selectedSlots[0] || 1);
+
         const roomCell = document.createElement('div');
-        roomCell.className = `room-cabin-cell type-${room.type} status-free`;
+        roomCell.className = `room-cabin-cell type-${room.type} ${statusClass}`;
         roomCell.dataset.roomId = room.id;
 
         let icon = '📖';
         if (room.type === 'lecture') icon = '🏛️';
         if (room.type === 'lab') icon = '💻';
+
+        let pillClass = 'busy';
+        if (safety.status === 'safe') pillClass = 'safe';
+        if (safety.status === 'moderate' || safety.status === 'warn') pillClass = 'warn';
 
         roomCell.innerHTML = `
           <div class="room-top-info">
@@ -617,12 +644,12 @@
           </div>
           <div class="room-bottom-info">
             <span class="room-capacity">${room.capacity}座</span>
-            <span class="consecutive-pill safe">实时空闲</span>
+            <span class="consecutive-pill ${pillClass}">${safety.badgeText}</span>
           </div>
         `;
 
         // Hover events
-        roomCell.addEventListener('mouseenter', (e) => showHoverCard(room, e));
+        roomCell.addEventListener('mouseenter', (e) => showHoverCard(room, safety, e));
         roomCell.addEventListener('mousemove', (e) => positionHoverCard(e));
         roomCell.addEventListener('mouseleave', () => hideHoverCard());
 
@@ -656,12 +683,11 @@
       });
     }
 
-    // Toggles
     const hideLabsToggle = document.getElementById('hideLabsToggle');
     if (hideLabsToggle) {
       hideLabsToggle.addEventListener('change', (e) => {
         state.hideLabs = e.target.checked;
-        loadRealClassroomData();
+        renderFloorCabinMap();
       });
     }
 
@@ -695,7 +721,8 @@
     }
     updateSelectedCount();
     highlightMatrixCapsules();
-    loadRealClassroomData();
+    updateBuildingMacroCards();
+    renderFloorCabinMap();
   }
 
   function renderSlotsMatrix() {
@@ -736,7 +763,8 @@
 
     updateSelectedCount();
     highlightMatrixCapsules();
-    loadRealClassroomData();
+    updateBuildingMacroCards();
+    renderFloorCabinMap();
   }
 
   function highlightMatrixCapsules() {
@@ -765,24 +793,23 @@
     hoverCard = document.getElementById('roomHoverCard');
   }
 
-  function showHoverCard(room, event) {
+  function showHoverCard(room, safety, event) {
     if (!hoverCard) return;
 
     document.getElementById('hoverRoomName').textContent = room.name;
     document.getElementById('hoverRoomType').textContent = `${room.typeDisplay} · ${room.capacity}座`;
 
     const safetyBanner = document.getElementById('hoverSafetyBanner');
-    safetyBanner.className = 'card-safety-banner safe';
-    document.getElementById('hoverSafetyText').textContent = `🟢 教务处实时确认空闲！节次：${room.freeSlotText || '所选时段'} (${room.timeRangeText || '可安心自习'})`;
+    safetyBanner.className = `card-safety-banner ${safety.status}`;
+    document.getElementById('hoverSafetyText').textContent = safety.text;
 
     const bar = document.getElementById('hoverTimelineBar');
     bar.innerHTML = '';
-    SESSION_SLOTS.forEach(s => {
-      const isSelected = state.selectedSlots.includes(s.slot);
+    room.schedule.forEach((isBusy, idx) => {
       const dot = document.createElement('div');
-      dot.className = `timeline-slot-dot ${isSelected ? 'free' : 'busy'}`;
-      dot.textContent = s.slot;
-      dot.title = `第${s.slot}节 (${s.time}): ${isSelected ? '实时空闲' : '未查询/可能有课'}`;
+      dot.className = `timeline-slot-dot ${isBusy ? 'busy' : 'free'}`;
+      dot.textContent = idx + 1;
+      dot.title = `第${idx + 1}节 (${SESSION_SLOTS[idx].time}): ${isBusy ? '有课/占用' : '空闲可自习'}`;
       bar.appendChild(dot);
     });
 
@@ -818,6 +845,81 @@
     if (hoverCard) {
       hoverCard.style.display = 'none';
     }
+  }
+
+  // Barrier UI & Status State
+  function showHardFailBarrier(errorResult) {
+    hideContentArea();
+    hideLoadingPanel();
+
+    const barrierEl = document.getElementById('realDataBarrierPanel');
+    if (!barrierEl) return;
+
+    barrierEl.style.display = 'flex';
+    updateBadgeState('disconnected', '教务未直连 · 拒绝假数据');
+
+    const titleEl = document.getElementById('barrierTitle');
+    const subtitleEl = document.getElementById('barrierSubtitle');
+    const diagTextEl = document.getElementById('barrierDiagnosticsText');
+
+    if (errorResult?.error === 'UNAUTHENTICATED') {
+      titleEl.textContent = '🔒 WebVPN 会话未激活或已过期';
+      subtitleEl.innerHTML = `
+        仪表盘严守 <strong>100% 真实教务数据</strong> 原则，绝不使用任何伪造假数据误导自习。<br>
+        请先点击下方按钮登录吉大 WebVPN，登录成功后点击“重新拉取”。
+      `;
+    } else {
+      titleEl.textContent = '⚠️ 无法获取吉大教务处实时排课数据';
+      subtitleEl.innerHTML = `
+        接口通信失败或校园网连接中断。<strong>系统已坚决阻断界面渲染</strong>，以防虚假数据误导自习决策。
+      `;
+    }
+
+    if (diagTextEl) {
+      diagTextEl.textContent = JSON.stringify({
+        timestamp: new Date().toLocaleString(),
+        status: 'HARD_FAIL_BLOCKED',
+        error: errorResult?.error || 'UNKNOWN_ERROR',
+        message: errorResult?.message || '无法获取真实排课',
+        targetUrl: 'cxkxjs.do',
+        targetDate: state.queryDate,
+        targetCampus: '南岭校区 (02)',
+        targetBuildings: '逸夫楼(65), 一教(73), 二教(82)'
+      }, null, 2);
+    }
+  }
+
+  function hideBarrierPanel() {
+    const el = document.getElementById('realDataBarrierPanel');
+    if (el) el.style.display = 'none';
+  }
+
+  function showLoadingPanel(show) {
+    const el = document.getElementById('realDataLoadingPanel');
+    if (el) el.style.display = show ? 'flex' : 'none';
+  }
+
+  function hideLoadingPanel() {
+    showLoadingPanel(false);
+  }
+
+  function showContentArea() {
+    const el = document.getElementById('realDataContentArea');
+    if (el) el.style.display = 'block';
+  }
+
+  function hideContentArea() {
+    const el = document.getElementById('realDataContentArea');
+    if (el) el.style.display = 'none';
+  }
+
+  function updateBadgeState(status, text) {
+    const badge = document.getElementById('realDataBadge');
+    const textEl = document.getElementById('realDataBadgeText');
+    if (!badge || !textEl) return;
+
+    badge.className = `real-data-badge ${status}`;
+    textEl.textContent = text;
   }
 
   // Start on DOM ready

@@ -22,20 +22,13 @@
           </div>
         </div>
 
-        <!-- Campus Selector (with persistent memory) -->
-        <div class="campus-selector-box">
-          <label for="campusSelect" class="selector-label">常驻校区</label>
-          <div class="select-wrapper">
-            <select id="campusSelect" class="dash-select">
-              <option value="nanling" selected>南岭校区（工科）</option>
-              <option value="qianwei">前卫南区（中心）</option>
-              <option value="chaoyang">朝阳校区（地质）</option>
-              <option value="xinmin">新民校区（医学）</option>
-              <option value="nanhu">南湖校区（信息）</option>
-              <option value="heping">和平校区（农学）</option>
-            </select>
+        <!-- Focused Campus Badge (Nanling Dedicated) -->
+        <div class="campus-selector-box" title="当前版本精耕南岭校区核心教学楼">
+          <span class="selector-label">当前校区</span>
+          <div style="font-weight: 700; font-size: 13px; color: #38bdf8; display: flex; align-items: center; gap: 6px; padding: 2px 4px;">
+            <span>南岭校区（工科）</span>
+            <span class="memory-tag" style="background: rgba(56, 189, 248, 0.2); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4);">聚焦逸夫/一教/二教</span>
           </div>
-          <span class="memory-tag" id="campusMemoryTip">已自动记住</span>
         </div>
       </div>
 
@@ -210,6 +203,16 @@
                   <button class="pill-btn" id="viewModeLowFloor">低楼层 (1~3F 免爬楼)</button>
                 </div>
               </div>
+            </div>
+
+            <!-- Hidden Rooms & Parallel Reconstruction Notice -->
+            <div class="hidden-rooms-notice-card" id="hiddenRoomsNoticeCard">
+              <div class="notice-icon">🛡️</div>
+              <div class="notice-content">
+                <span class="notice-title">空间智能净化与真实可用保障</span>
+                <span class="notice-desc">系统已通过全天 1~12 节切片并发重构完整走势。<strong>全天有课、封闭或教务处无排课数据的教室已自动隐藏</strong>，当前仅呈现确有空闲自习时段的真实可用教室。</span>
+              </div>
+              <div class="notice-count" id="activeRoomsCountBadge">共 -- 间可用</div>
             </div>
 
             <!-- Floor by Floor Seat Cabin Grid -->

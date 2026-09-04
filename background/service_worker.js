@@ -36,40 +36,92 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       .catch(err => sendResponse({ success: false, error: err.message || String(err) }));
     return true; // async sendResponse
   }
+
+  if (request.type === 'FETCH_TIMELINE') {
+    handleFetchTimeline(request.payload)
+      .then(result => sendResponse(result))
+      .catch(err => sendResponse({ success: false, error: err.message || String(err) }));
+    return true; // async sendResponse
+  }
 });
+
+async function handleFetchTimeline(payload = {}) {
+  // Slots 1 to 12
+  const slots = payload.slots || [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+  
+  // Parallel fetch for each slot across Nanling 65, 82, 73
+  const slotPromises = slots.map(slotNum => {
+    return handleFetchClassrooms({
+      ...payload,
+      startSection: slotNum,
+      endSection: slotNum,
+      pageSize: 400
+    }).then(res => ({
+      slot: slotNum,
+      res
+    }));
+  });
+
+  const results = await Promise.all(slotPromises);
+
+  // Check if any request failed due to authentication
+  const unauth = results.find(r => r.res && r.res.error === 'UNAUTHENTICATED');
+  if (unauth) {
+    return {
+      success: false,
+      error: 'UNAUTHENTICATED',
+      message: 'WebVPN 未登录或认证会话已过期，请先登录吉大 WebVPN'
+    };
+  }
+
+  return {
+    success: true,
+    slotsData: results.map(r => ({
+      slot: r.slot,
+      success: r.res ? r.res.success : false,
+      rows: (r.res && r.res.rows) ? r.res.rows : []
+    })),
+    queryMeta: payload
+  };
+}
 
 async function handleFetchClassrooms(payload = {}) {
   const {
     campusCode = '02',
-    buildingCode = '65',
+    buildingCode = '65,82,73',
     date,
     startSection = 1,
     endSection = 1,
-    cleanOnly = true,
-    pageSize = 300
+    cleanOnly = false,
+    pageSize = 400
   } = payload;
 
-  // Ensure buildingCode is numeric code (legacy mock used 'yifu', real JLU is '65')
-  const finalBuildingCode = (!buildingCode || buildingCode === 'yifu' || !/^\d+$/.test(buildingCode)) ? '65' : buildingCode;
+  // Support Nanling trio 65(逸夫楼), 82(二教), 73(一教)
+  const finalBuildingCode = (!buildingCode || buildingCode === 'yifu') 
+    ? '65,82,73' 
+    : buildingCode;
 
   // Use today's date if not passed
   const queryDate = date || new Date().toISOString().slice(0, 10);
 
-  // Classroom types: cleanOnly keeps 01 (multimedia) and 08 (general)
-  const roomTypes = cleanOnly 
-    ? '01,08' 
-    : '03,02,01,04,05,06,13,08,09,10,11,12,07';
+  // Classroom types: query all types to capture full rooms, clean on client-side
+  const roomTypes = '03,02,01,04,05,06,13,08,09,10,11,12,07';
 
-  // Construct EMAP querySetting
+  // Construct canonical EMAP querySetting exactly matching working network trace
   const querySetting = [
-    { name: "XXXQDM", value: campusCode, linkOpt: "AND", builder: "equal" },
-    { name: "JXLDM", value: finalBuildingCode, linkOpt: "AND", builder: "equal" },
+    { name: "XXXQDM", caption: "学校校区", linkOpt: "AND", builderList: "cbl_m_List", builder: "m_value_equal", value: "02", value_display: "南岭校区" },
+    { name: "JXLDM", caption: "教学楼", linkOpt: "AND", builderList: "cbl_m_List", builder: "m_value_equal", value: finalBuildingCode, value_display: "南岭-逸夫楼,南岭-(二),南岭-(一)" },
+    { name: "JASLXDM", caption: "教室类型", linkOpt: "AND", builderList: "cbl_m_List", builder: "m_value_equal", value: roomTypes, value_display: "公用资源,体育馆,多媒体,制图教室,多功能设计教室,体育场,运动场,操场,普通,画室,计算机房,语音室,实验室" },
+    { name: "KXRQ", caption: "空闲日期", linkOpt: "AND", builderList: "cbl_Other", builder: "equal", value: queryDate },
+    { name: "KXJC", caption: "空闲节次", builder: "lessEqual", linkOpt: "AND", builderList: "cbl_Other", value: String(startSection) },
+    { name: "KXJC", caption: "空闲节次", linkOpt: "AND", builderList: "cbl_String", builder: "moreEqual", value: String(startSection) },
+    { name: "XXXQDM", value: "02", linkOpt: "AND", builder: "equal" },
+    { name: "JXLDM", value: finalBuildingCode, linkOpt: "AND", builder: "m_value_equal" },
     { name: "JASLXDM", value: roomTypes, linkOpt: "AND", builder: "m_value_equal" },
     { name: "KXRQ", value: queryDate, linkOpt: "AND", builder: "equal" },
-    { name: "KSJC", value: String(startSection), linkOpt: "AND", builder: "equal" },
     { name: "JSJC", value: String(endSection), linkOpt: "AND", builder: "equal" },
-    { name: "KXJC", value: String(startSection), linkOpt: "AND", builder: "moreEqual" },
-    { name: "KXJC", value: String(endSection), linkOpt: "AND", builder: "lessEqual" }
+    { name: "KXJC", value: String(startSection), linkOpt: "AND", builder: "equal" },
+    { name: "KSJC", value: String(startSection), linkOpt: "AND", builder: "equal" }
   ];
 
   const params = new URLSearchParams();
