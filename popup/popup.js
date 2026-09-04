@@ -8,17 +8,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const popupCampusName = document.getElementById('popupCampusName');
 
   // Load campus memory
-  const campusKey = localStorage.getItem('nmj_campus') || 'nanling';
+  const campusKey = localStorage.getItem('nmj_campus') || '02';
   const campusNames = {
-    nanling: '南岭校区（工科）',
-    qianwei: '前卫南区（中心）',
-    chaoyang: '朝阳校区（地质）',
-    xinmin: '新民校区（医学）',
-    nanhu: '南湖校区（信息）',
-    heping: '和平校区（农学）'
+    '02': '南岭校区 (工科)',
+    'nanling': '南岭校区 (工科)'
   };
-  if (popupCampusName && campusNames[campusKey]) {
-    popupCampusName.textContent = campusNames[campusKey];
+  if (popupCampusName) {
+    popupCampusName.textContent = campusNames[campusKey] || '南岭校区 (工科)';
   }
 
   // Open Classroom Study Dashboard

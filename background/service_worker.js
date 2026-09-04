@@ -45,11 +45,19 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 });
 
+function getLocalDateString() {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 async function handleFetchTimeline(payload = {}) {
-  // Slots 1 to 12
+  // Slots 1 to 12 (100% matches official schedule slices)
   const slots = payload.slots || [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
   
-  // Parallel fetch for each slot across Nanling 65, 82, 73
+  // Parallel fetch for each slot across requested buildings
   const slotPromises = slots.map(slotNum => {
     return handleFetchClassrooms({
       ...payload,
@@ -70,7 +78,7 @@ async function handleFetchTimeline(payload = {}) {
     return {
       success: false,
       error: 'UNAUTHENTICATED',
-      message: 'WebVPN 未登录或认证会话已过期，请先登录吉大 WebVPN'
+      message: '吉大教务会话未激活：如在校外请登录 WebVPN (vpn.jlu.edu.cn)；如在校内请确认已登录校园网认证'
     };
   }
 
@@ -96,26 +104,25 @@ async function handleFetchClassrooms(payload = {}) {
     pageSize = 400
   } = payload;
 
-  // Support Nanling trio 65(逸夫楼), 82(二教), 73(一教)
   const finalBuildingCode = (!buildingCode || buildingCode === 'yifu') 
     ? '65,82,73' 
     : buildingCode;
 
-  // Use today's date if not passed
-  const queryDate = date || new Date().toISOString().slice(0, 10);
+  // Use local date string instead of UTC to avoid early-morning day-lag
+  const queryDate = date || getLocalDateString();
 
   // Classroom types: query all types to capture full rooms, clean on client-side
   const roomTypes = '03,02,01,04,05,06,13,08,09,10,11,12,07';
 
-  // Construct canonical EMAP querySetting exactly matching working network trace
+  // Construct canonical EMAP querySetting dynamically supporting any campus
   const querySetting = [
-    { name: "XXXQDM", caption: "学校校区", linkOpt: "AND", builderList: "cbl_m_List", builder: "m_value_equal", value: "02", value_display: "南岭校区" },
-    { name: "JXLDM", caption: "教学楼", linkOpt: "AND", builderList: "cbl_m_List", builder: "m_value_equal", value: finalBuildingCode, value_display: "南岭-逸夫楼,南岭-(二),南岭-(一)" },
-    { name: "JASLXDM", caption: "教室类型", linkOpt: "AND", builderList: "cbl_m_List", builder: "m_value_equal", value: roomTypes, value_display: "公用资源,体育馆,多媒体,制图教室,多功能设计教室,体育场,运动场,操场,普通,画室,计算机房,语音室,实验室" },
+    { name: "XXXQDM", caption: "学校校区", linkOpt: "AND", builderList: "cbl_m_List", builder: "m_value_equal", value: campusCode },
+    { name: "JXLDM", caption: "教学楼", linkOpt: "AND", builderList: "cbl_m_List", builder: "m_value_equal", value: finalBuildingCode },
+    { name: "JASLXDM", caption: "教室类型", linkOpt: "AND", builderList: "cbl_m_List", builder: "m_value_equal", value: roomTypes },
     { name: "KXRQ", caption: "空闲日期", linkOpt: "AND", builderList: "cbl_Other", builder: "equal", value: queryDate },
     { name: "KXJC", caption: "空闲节次", builder: "lessEqual", linkOpt: "AND", builderList: "cbl_Other", value: String(startSection) },
     { name: "KXJC", caption: "空闲节次", linkOpt: "AND", builderList: "cbl_String", builder: "moreEqual", value: String(startSection) },
-    { name: "XXXQDM", value: "02", linkOpt: "AND", builder: "equal" },
+    { name: "XXXQDM", value: campusCode, linkOpt: "AND", builder: "equal" },
     { name: "JXLDM", value: finalBuildingCode, linkOpt: "AND", builder: "m_value_equal" },
     { name: "JASLXDM", value: roomTypes, linkOpt: "AND", builder: "m_value_equal" },
     { name: "KXRQ", value: queryDate, linkOpt: "AND", builder: "equal" },
@@ -136,79 +143,96 @@ async function handleFetchClassrooms(payload = {}) {
   params.append('pageSize', String(pageSize));
   params.append('pageNumber', '1');
 
-  // WebVPN URL with the verified reverse-engineered hash prefix
+  // Dual-Channel support: WebVPN encrypted gateway & Campus LAN direct
   const webvpnHash = '/https/48714f71342f7a336d582f7e2857373756c9770f46c0c2b0ff87560d5a42f1';
-  const url = `https://vpn.jlu.edu.cn${webvpnHash}/jwapp/sys/kxjas/modules/kxjscx/cxkxjs.do?vpn-12-o2-iedu.jlu.edu.cn`;
+  const webvpnUrl = `https://vpn.jlu.edu.cn${webvpnHash}/jwapp/sys/kxjas/modules/kxjscx/cxkxjs.do?vpn-12-o2-iedu.jlu.edu.cn`;
+  const directUrl = `https://iedu.jlu.edu.cn/jwapp/sys/kxjas/modules/kxjscx/cxkxjs.do`;
 
-  try {
-    const resp = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-        'X-Requested-With': 'XMLHttpRequest'
-      },
-      body: params.toString()
-    });
+  // First try WebVPN endpoint, if unauthenticated try direct LAN endpoint
+  const targetUrls = [webvpnUrl, directUrl];
+  let lastError = null;
 
-    if (!resp.ok) {
-      return {
-        success: false,
-        error: 'HTTP_' + resp.status,
-        message: `教务系统接口响应异常 (HTTP ${resp.status})`
-      };
-    }
-
-    const text = await resp.text();
-    // Check if redirected to WebVPN login page (HTML)
-    if (text.includes('<!DOCTYPE html>') || text.includes('<html') || text.includes('统一身份认证') || text.includes('login')) {
-      return {
-        success: false,
-        error: 'UNAUTHENTICATED',
-        message: 'WebVPN 未登录或认证会话已过期，请先登录吉大 WebVPN'
-      };
-    }
-
-    let json;
+  for (const url of targetUrls) {
     try {
-      json = JSON.parse(text);
-    } catch (e) {
-      return {
-        success: false,
-        error: 'PARSE_ERROR',
-        message: '教务系统返回非标准 JSON 响应',
-        raw: text.slice(0, 300)
-      };
-    }
+      const resp = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: params.toString()
+      });
 
-    const rows = json?.datas?.cxkxjs?.rows;
-    if (!Array.isArray(rows)) {
-      return {
-        success: false,
-        error: 'NO_DATA',
-        message: '教务系统未返回有效的 rows 列表',
-        raw: json
-      };
-    }
-
-    return {
-      success: true,
-      totalSize: json?.datas?.cxkxjs?.totalSize || rows.length,
-      rows: rows,
-      queryMeta: {
-        campusCode,
-        buildingCode,
-        date: queryDate,
-        startSection,
-        endSection,
-        cleanOnly
+      if (!resp.ok) {
+        lastError = {
+          success: false,
+          error: 'HTTP_' + resp.status,
+          message: `教务系统接口响应异常 (HTTP ${resp.status})`
+        };
+        continue;
       }
-    };
-  } catch (err) {
-    return {
-      success: false,
-      error: 'NETWORK_ERROR',
-      message: '网络连接失败，请确认是否处于校园网或已开启代理: ' + err.message
-    };
+
+      const text = await resp.text();
+      // Check if redirected to login page (HTML)
+      if (text.includes('<!DOCTYPE html>') || text.includes('<html') || text.includes('统一身份认证') || text.includes('login')) {
+        lastError = {
+          success: false,
+          error: 'UNAUTHENTICATED',
+          message: 'WebVPN 未登录或校园网会话过期，请先登录 WebVPN 或连接吉大校园网'
+        };
+        continue;
+      }
+
+      let json;
+      try {
+        json = JSON.parse(text);
+      } catch (e) {
+        lastError = {
+          success: false,
+          error: 'PARSE_ERROR',
+          message: '教务系统返回非标准 JSON 响应',
+          raw: text.slice(0, 300)
+        };
+        continue;
+      }
+
+      const rows = json?.datas?.cxkxjs?.rows;
+      if (!Array.isArray(rows)) {
+        lastError = {
+          success: false,
+          error: 'NO_DATA',
+          message: '教务系统未返回有效的 rows 列表',
+          raw: json
+        };
+        continue;
+      }
+
+      return {
+        success: true,
+        totalSize: json?.datas?.cxkxjs?.totalSize || rows.length,
+        rows: rows,
+        queryMeta: {
+          campusCode,
+          buildingCode: finalBuildingCode,
+          date: queryDate,
+          startSection,
+          endSection,
+          cleanOnly
+        }
+      };
+    } catch (err) {
+      lastError = {
+        success: false,
+        error: 'NETWORK_ERROR',
+        message: '网络连接失败，请确认是否处于校园网或已登录 WebVPN: ' + err.message
+      };
+    }
   }
+
+  return lastError || {
+    success: false,
+    error: 'UNKNOWN_ERROR',
+    message: '教务系统双通道探测均失败'
+  };
 }
 

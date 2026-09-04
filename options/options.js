@@ -226,26 +226,22 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Clear Read Records
-  btnClearRead.addEventListener('click', () => {
-    if (confirm('确定要清空所有已读记录吗？所有通知将恢复为“未读”高亮状态。')) {
-      chrome.storage.local.set({ nmj_read_map: {} }, () => {
-        alert('已清空已读记录！');
-      });
-    }
-  });
-
-  // Export Stars
-  btnExportStars.addEventListener('click', () => {
-    chrome.storage.local.get(['nmj_star_map'], (res) => {
-      const stars = res.nmj_star_map || {};
-      const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(stars, null, 2));
-      const downloadAnchor = document.createElement('a');
-      downloadAnchor.setAttribute('href', dataStr);
-      downloadAnchor.setAttribute('download', `jlu_starred_notices_${Date.now()}.json`);
-      document.body.appendChild(downloadAnchor);
-      downloadAnchor.click();
-      downloadAnchor.remove();
+  // Reset Drawer Width
+  const btnResetDrawerWidth = document.getElementById('btn-reset-drawer-width');
+  if (btnResetDrawerWidth) {
+    btnResetDrawerWidth.addEventListener('click', () => {
+      localStorage.removeItem('nmj_drawer_width');
+      alert('已重置抽屉宽度为默认 840px！');
     });
-  });
+  }
+
+  // Clear Last-Seen Divider
+  if (btnClearRead) {
+    btnClearRead.addEventListener('click', () => {
+      if (confirm('确定要重置「上次看到这里」红线记录吗？下次打开 OA 将以当前最新通知作为起点。')) {
+        localStorage.removeItem('nmj_oa_last_visit');
+        alert('已重置红线基准！');
+      }
+    });
+  }
 });

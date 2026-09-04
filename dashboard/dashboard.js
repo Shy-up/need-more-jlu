@@ -23,27 +23,26 @@
     { slot: 12, name: '第12节', time: '20:46-21:30', start: '20:46', end: '21:30', period: 'evening' }
   ];
 
-  // Nanling Trio Core Buildings (Explicitly Focused & Verified)
-  const NANLING_BUILDINGS = [
-    { id: '65', code: '65', name: '南岭-逸夫楼', shortName: '逸夫楼', tag: '工科主力', totalFloors: 7 },
-    { id: '73', code: '73', name: '南岭-(一)', shortName: '第一教学楼', tag: '一教', totalFloors: 5 },
-    { id: '82', code: '82', name: '南岭-(二)', shortName: '第二教学楼', tag: '二教', totalFloors: 5 }
-  ];
+  // Dynamic Campus & Buildings State (Loaded from data/campuses.json)
+  let campusConfig = null;
+  let currentCampus = null;
+  let currentBuildings = [];
 
   // Helper to sanitize buildingId
-  function getSanitizedBuildingId() {
+  function getSanitizedBuildingId(availableBuildings) {
+    const list = availableBuildings || currentBuildings;
     let saved = localStorage.getItem('nmj_building');
-    if (!saved || saved === 'yifu' || !['65', '73', '82'].includes(saved)) {
-      saved = '65';
-      localStorage.setItem('nmj_building', '65');
+    if (!saved || !list.some(b => b.id === saved)) {
+      saved = list.length > 0 ? list[0].id : '65';
+      localStorage.setItem('nmj_building', saved);
     }
     return saved;
   }
 
   // State
   let state = {
-    campusCode: '02', // Nanling
-    buildingId: getSanitizedBuildingId(),
+    campusCode: '02',
+    buildingId: '65',
     queryDate: getTodayString(),
     activePreset: 'now', // 'now' | 'morning' | 'afternoon' | 'evening' | 'all' | 'custom'
     selectedSlots: [1],
@@ -56,12 +55,8 @@
     isDarkTheme: false
   };
 
-  // Structured room repository grouped by building: { '65': [], '73': [], '82': [] }
-  let buildingRoomsMap = {
-    '65': [],
-    '73': [],
-    '82': []
-  };
+  // Structured room repository grouped by buildingId: { [buildingId]: [] }
+  let buildingRoomsMap = {};
 
   function getTodayString() {
     const d = new Date();
@@ -100,8 +95,8 @@
         nextSlot: null,
         nextSlotDef: null,
         time: currentTime,
-        badgeText: `今日课程已全部结束 (${SESSION_SLOTS[11].end} 结课) · 晚自习时段`,
-        hintText: `今日已结课`
+        badgeText: `今日排课已全部结束 (${SESSION_SLOTS[11].end} 结课) · 晚自习请留意闭馆锁楼`,
+        hintText: `今日已结课 (留意闭馆)`
       };
     }
 
@@ -109,6 +104,10 @@
     for (let i = 0; i < SESSION_SLOTS.length; i++) {
       const s = SESSION_SLOTS[i];
       if (currentTime >= s.start && currentTime <= s.end) {
+        const [endH, endM] = s.end.split(':').map(Number);
+        const [nowH, nowM] = currentTime.split(':').map(Number);
+        const remainMinutes = Math.max(0, (endH * 60 + endM) - (nowH * 60 + nowM));
+
         return {
           type: 'in_session',
           activeSlot: s.slot,
@@ -116,8 +115,9 @@
           nextSlotDef: i + 1 < SESSION_SLOTS.length ? SESSION_SLOTS[i + 1] : null,
           slotDef: s,
           time: currentTime,
-          badgeText: `进行中：${s.name} (${s.time})`,
-          hintText: `当前第${s.slot}节`
+          remainMinutes: remainMinutes,
+          badgeText: `进行中：${s.name} (${s.time}) · 剩 ${remainMinutes} 分钟`,
+          hintText: `当前第${s.slot}节 (剩${remainMinutes}分)`
         };
       }
 
@@ -304,8 +304,94 @@
     }
   }
 
+  // Load campus & buildings config from independent single file data/campuses.json
+  async function loadCampusConfig() {
+    try {
+      const configUrl = (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getURL)
+        ? chrome.runtime.getURL('data/campuses.json')
+        : '../data/campuses.json';
+      const res = await fetch(configUrl);
+      if (res.ok) {
+        campusConfig = await res.json();
+      }
+    } catch (e) {
+      console.warn('[need_more_jlu] 读取 data/campuses.json 失败，启用保底南岭校区配置:', e);
+    }
+
+    if (!campusConfig || !Array.isArray(campusConfig.campuses) || campusConfig.campuses.length === 0) {
+      campusConfig = {
+        defaultCampus: '02',
+        campuses: [
+          {
+            id: 'nanling',
+            code: '02',
+            name: '南岭校区',
+            shortName: '南岭 (工科)',
+            tag: '已实测验证',
+            buildings: [
+              { id: '65', code: '65', name: '南岭-逸夫楼', shortName: '逸夫楼', tag: '工科主力', totalFloors: 7 },
+              { id: '73', code: '73', name: '南岭-(一)', shortName: '第一教学楼', tag: '一教', totalFloors: 5 },
+              { id: '82', code: '82', name: '南岭-(二)', shortName: '第二教学楼', tag: '二教', totalFloors: 5 }
+            ]
+          }
+        ]
+      };
+    }
+
+    initCampusSelector();
+  }
+
+  function initCampusSelector() {
+    const campusSelect = document.getElementById('campusSelect');
+    if (!campusSelect) return;
+
+    campusSelect.innerHTML = '';
+    const savedCampusCode = localStorage.getItem('nmj_campus') || campusConfig.defaultCampus || '02';
+
+    campusConfig.campuses.forEach(camp => {
+      const opt = document.createElement('option');
+      opt.value = camp.code;
+      opt.textContent = `${camp.name} (${camp.tag || ''})`;
+      if (camp.code === savedCampusCode) opt.selected = true;
+      campusSelect.appendChild(opt);
+    });
+
+    currentCampus = campusConfig.campuses.find(c => c.code === campusSelect.value) || campusConfig.campuses[0];
+    state.campusCode = currentCampus.code;
+    currentBuildings = currentCampus.buildings || [];
+    state.buildingId = getSanitizedBuildingId(currentBuildings);
+
+    campusSelect.addEventListener('change', (e) => {
+      const newCode = e.target.value;
+      const targetCamp = campusConfig.campuses.find(c => c.code === newCode);
+      if (targetCamp) {
+        currentCampus = targetCamp;
+        state.campusCode = targetCamp.code;
+        currentBuildings = targetCamp.buildings || [];
+        state.buildingId = getSanitizedBuildingId(currentBuildings);
+        localStorage.setItem('nmj_campus', newCode);
+
+        buildingRoomsMap = {};
+        currentBuildings.forEach(b => {
+          buildingRoomsMap[b.id] = [];
+        });
+
+        updateBuildingMacroCards();
+        renderFloorCabinMap();
+        loadParallelTimelineData();
+      }
+    });
+
+    buildingRoomsMap = {};
+    currentBuildings.forEach(b => {
+      buildingRoomsMap[b.id] = [];
+    });
+  }
+
   // Initialization
-  function init() {
+  async function init() {
+    await loadCampusConfig();
+
     state.selectedSlots = isQueryingToday() ? [getCurrentTimeSlot()] : [5, 6, 7, 8];
 
     bindHeaderEvents();
@@ -411,8 +497,8 @@
     hideContentArea();
 
     const payload = {
-      campusCode: '02',
-      buildingCode: '65,82,73', // Nanling Trio
+      campusCode: state.campusCode,
+      buildingCode: currentBuildings.map(b => b.code).join(',') || '65,82,73',
       date: state.queryDate,
       slots: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
     };
@@ -524,12 +610,11 @@
   // ==========================================================================
 
   function mergeAndProcessTimeline(slotsData) {
-    // Reset room store
-    buildingRoomsMap = {
-      '65': [],
-      '73': [],
-      '82': []
-    };
+    // Reset room store for current campus buildings
+    buildingRoomsMap = {};
+    currentBuildings.forEach(b => {
+      buildingRoomsMap[b.id] = [];
+    });
 
     const roomDict = new Map(); // roomId -> room
 
@@ -540,13 +625,13 @@
         const roomId = row.JASMC;
         if (!roomId) return;
 
-        // Determine building: 65 (逸夫楼), 73 (一教), 82 (二教)
+        // Determine building dynamically matching currentBuildings
         let bCode = String(row.JXLDM || '');
-        if (!bCode || bCode === 'null') {
-          if (row.JASMC.includes('逸夫')) bCode = '65';
-          else if (row.JASMC.includes('(一)') || row.JASMC.includes('一教')) bCode = '73';
-          else if (row.JASMC.includes('(二)') || row.JASMC.includes('二教')) bCode = '82';
-          else bCode = '65';
+        if (!bCode || bCode === 'null' || !buildingRoomsMap[bCode]) {
+          const matched = currentBuildings.find(b => 
+            row.JASMC.includes(b.shortName) || row.JASMC.includes(b.name) || row.JASMC.includes(b.id)
+          );
+          bCode = matched ? matched.id : (currentBuildings[0] ? currentBuildings[0].id : '65');
         }
 
         if (!roomDict.has(roomId)) {
@@ -568,12 +653,14 @@
 
     // Populate building buckets
     let totalRoomsFound = 0;
+    const defaultBId = currentBuildings[0] ? currentBuildings[0].id : '65';
     roomDict.forEach(room => {
       totalRoomsFound++;
       if (buildingRoomsMap[room.buildingCode]) {
         buildingRoomsMap[room.buildingCode].push(room);
       } else {
-        buildingRoomsMap['65'].push(room);
+        if (!buildingRoomsMap[defaultBId]) buildingRoomsMap[defaultBId] = [];
+        buildingRoomsMap[defaultBId].push(room);
       }
     });
 
@@ -714,7 +801,7 @@
       const timeInfo = getCurrentTimeSlotInfo();
 
       if (timeInfo.type === 'after_school') {
-        return { text: '今日已结课', type: 'safe' };
+        return { text: '排课已结', type: 'safe' };
       }
 
       if (timeInfo.type === 'before_school') {
@@ -726,7 +813,7 @@
             else break;
           }
           if (count === 12) return { text: '全天全空', type: 'safe' };
-          return { text: `可坐 ${count} 节`, type: count >= 3 ? 'safe' : 'warn' };
+          return { text: `可坐 ${count} 节`, type: count >= 2 ? 'safe' : 'warn' };
         } else {
           return { text: `第1节有课 (${SESSION_SLOTS[0].start})`, type: 'warn' };
         }
@@ -744,7 +831,7 @@
             else break;
           }
           if (count === (13 - nextSlot) && nextSlot <= 2) return { text: '全天全空', type: 'safe' };
-          return { text: `连空 ${count} 节`, type: count >= 3 ? 'safe' : 'warn' };
+          return { text: `连空 ${count} 节`, type: count >= 2 ? 'safe' : 'warn' };
         } else {
           return { text: `下节有课 (${nextS ? nextS.start : ''})`, type: 'warn' };
         }
@@ -761,7 +848,10 @@
           else break;
         }
         if (count === 12) return { text: '全天全空', type: 'safe' };
-        return { text: `连空 ${count} 节`, type: count >= 3 ? 'safe' : 'warn' };
+        if (count === 1 && typeof timeInfo.remainMinutes === 'number' && timeInfo.remainMinutes <= 15) {
+          return { text: `仅剩${timeInfo.remainMinutes}分`, type: 'warn' };
+        }
+        return { text: `连空 ${count} 节`, type: count >= 2 ? 'safe' : 'warn' };
       } else {
         return { text: '当前有课', type: 'busy' };
       }
@@ -797,7 +887,7 @@
       if (timeInfo.type === 'after_school') {
         bannerIcon = '🟢';
         bannerClass = 'safe';
-        bannerText = `今日教学排课已于 ${SESSION_SLOTS[11].end} 全部结束，全天课程已完毕，晚自习自由开放`;
+        bannerText = `今日教学排课已于 ${SESSION_SLOTS[11].end} 全部结束。晚自习提示：各教学楼晚间闭馆清楼时间不固定（通常在 22:00~22:30），请留意现场通知，避免滞留被锁。`;
       } else if (timeInfo.type === 'before_school') {
         const isFree1 = !room.schedule[0];
         if (isFree1) {
@@ -852,19 +942,22 @@
           const count = endSlot - curSlot + 1;
           const endTime = SESSION_SLOTS[endSlot - 1].end;
 
-          if (count >= 4) {
+          if (count >= 2) {
             bannerIcon = '🟢';
             bannerClass = 'safe';
-            bannerText = `当前第 ${curSlot} 节空闲，可连续自习至 ${endTime} (连续 ${count} 节无课)`;
-          } else if (count >= 2) {
-            bannerIcon = '🟡';
-            bannerClass = 'warn';
-            bannerText = `当前第 ${curSlot} 节空闲，可坐至 ${endTime} (连空 ${count} 节，${endTime} 后有课)`;
+            bannerText = `当前第 ${curSlot} 节空闲，可坐至 ${endTime} (连空 ${count} 节，适宜自习)`;
           } else {
             const nextStart = SESSION_SLOTS[curSlot] ? SESSION_SLOTS[curSlot].start : endTime;
-            bannerIcon = '🟡';
-            bannerClass = 'warn';
-            bannerText = `当前节次空闲，下节 (${nextStart}) 即有课，仅剩 1 节`;
+            const remainMin = typeof timeInfo.remainMinutes === 'number' ? timeInfo.remainMinutes : 0;
+            if (remainMin <= 15) {
+              bannerIcon = '🟡';
+              bannerClass = 'warn';
+              bannerText = `当前第 ${curSlot} 节即将下课 (仅剩 ${remainMin} 分钟)，下节 (${nextStart}) 即有排课，不建议长坐自习`;
+            } else {
+              bannerIcon = '🟡';
+              bannerClass = 'warn';
+              bannerText = `当前节次空闲 (剩 ${remainMin} 分钟)，下节 (${nextStart}) 即有课，仅剩 1 节`;
+            }
           }
         } else {
           let nextFree = -1;
@@ -963,7 +1056,7 @@
     let campusTotalRooms = 0;
     let campusTotalFree = 0;
 
-    NANLING_BUILDINGS.forEach(bldg => {
+    currentBuildings.forEach(bldg => {
       const rooms = buildingRoomsMap[bldg.id] || [];
       const validRooms = rooms.filter(r => !r.isClosed);
       let freeCount = 0;
@@ -985,7 +1078,7 @@
       card.innerHTML = `
         <div class="bldg-card-header">
           <span class="bldg-name">${bldg.shortName}</span>
-          <span class="bldg-floors-tag">${bldg.tag} · ${bldg.totalFloors}层</span>
+          <span class="bldg-floors-tag">${bldg.tag || ''} · ${bldg.totalFloors || 5}层</span>
         </div>
         <div class="bldg-stats-row">
           <div class="bldg-free-count">${freeCount} <small>/ ${validRooms.length} 间可用</small></div>
@@ -1009,7 +1102,8 @@
     const campusSummaryEl = document.getElementById('macroCampusSummary');
     if (campusSummaryEl) {
       const campusPercentage = campusTotalRooms > 0 ? Math.round((campusTotalFree / campusTotalRooms) * 100) : 0;
-      campusSummaryEl.textContent = `南岭校区三大教学楼 · 所选节次综合空闲率 ${campusPercentage}% (可用 ${campusTotalFree} / 总计 ${campusTotalRooms} 间)`;
+      const campusTitle = currentCampus ? currentCampus.name : '当前校区';
+      campusSummaryEl.textContent = `${campusTitle} · 所选节次综合空闲率 ${campusPercentage}% (可用 ${campusTotalFree} / 当前总计 ${campusTotalRooms} 间)`;
     }
   }
 
@@ -1032,7 +1126,7 @@
     if (!container) return;
     container.innerHTML = '';
 
-    const currentBldg = NANLING_BUILDINGS.find(b => b.id === state.buildingId) || NANLING_BUILDINGS[0];
+    const currentBldg = currentBuildings.find(b => b.id === state.buildingId) || currentBuildings[0] || { id: '65', name: '教学楼', shortName: '教学楼' };
     
     document.getElementById('currentBuildingTitle').textContent = `${currentBldg.shortName} (${currentBldg.name})`;
     
@@ -1046,7 +1140,7 @@
       } else if (timeInfo.type === 'before_school') {
         subDetail = `早间课前 (第1节 08:00 开始)`;
       } else if (timeInfo.type === 'after_school') {
-        subDetail = `今日课程已全部结束 (自由晚自习)`;
+        subDetail = `今日课程已结束 (晚自习留意锁楼)`;
       }
     }
     document.getElementById('currentBuildingSub').textContent = `${state.queryDate} · ${subDetail} · 空间舱位图`;

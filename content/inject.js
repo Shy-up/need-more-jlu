@@ -54,9 +54,22 @@
     const noticeLinks = document.querySelectorAll('a[href*="getInformation.action"]');
     if (!noticeLinks || noticeLinks.length === 0) return;
 
-    // First notice on page
-    const firstLink = noticeLinks[0];
-    const firstHref = firstLink.getAttribute('href') || '';
+    // Filter out pinned notices to find first regular sequential notice
+    function findFirstRegularNotice(links) {
+      for (const link of links) {
+        const text = link.innerText.trim();
+        const tr = link.closest('tr');
+        const trText = tr ? tr.innerText : '';
+        if (text.includes('置顶') || trText.includes('置顶') || link.querySelector('.zhiding')) {
+          continue;
+        }
+        return link;
+      }
+      return links[0];
+    }
+
+    const firstRegularLink = findFirstRegularNotice(noticeLinks);
+    const firstHref = firstRegularLink.getAttribute('href') || '';
     const firstIdMatch = firstHref.match(/id=([0-9a-zA-Z_-]+)/);
     const currentTopId = firstIdMatch ? firstIdMatch[1] : null;
 
@@ -67,7 +80,7 @@
     } catch (e) {}
 
     if (lastVisit && lastVisit.topId && currentTopId) {
-      // Find the row corresponding to lastTopId
+      // Find row corresponding to lastTopId
       let targetRow = null;
       noticeLinks.forEach(link => {
         if (!targetRow) {
@@ -78,8 +91,8 @@
         }
       });
 
-      // If found and it's not the very first row (meaning there are new notices!)
-      if (targetRow && targetRow !== firstLink.closest('tr')) {
+      // If found and not identical to top item, render divider
+      if (targetRow && targetRow !== firstRegularLink.closest('tr')) {
         const timeDiffStr = formatRelativeTime(lastVisit.time);
         const dividerTr = document.createElement('tr');
         dividerTr.className = 'nmj-seen-divider-tr';
@@ -96,18 +109,26 @@
       }
     }
 
-    // Update last visit info (update timestamp and top ID)
+    // Persist baseline safely on page unload/hide instead of premature 5s overwrite
     if (currentTopId) {
-      const visitData = {
-        topId: currentTopId,
-        time: Date.now()
-      };
-      // Save with small delay so current session preserves separator
-      setTimeout(() => {
+      const commitVisit = () => {
         try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(visitData));
+          const stored = localStorage.getItem(STORAGE_KEY);
+          const prev = stored ? JSON.parse(stored) : null;
+          // Only update if topId differs or more than 15 minutes elapsed
+          if (!prev || prev.topId !== currentTopId || (Date.now() - (prev.time || 0) > 15 * 60 * 1000)) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify({
+              topId: currentTopId,
+              time: Date.now()
+            }));
+          }
         } catch (e) {}
-      }, 5000);
+      };
+
+      window.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') commitVisit();
+      });
+      window.addEventListener('beforeunload', commitVisit);
     }
   }
 

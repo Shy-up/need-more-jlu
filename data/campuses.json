@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "version": "1.0.0",
+  "description": "吉林大学校区与教学楼数据配置。当前仅收录真实验证的校区与楼栋代码，支持社区后续提交 PR 扩充验证通过的新楼栋。",
+  "defaultCampus": "02",
+  "campuses": [
+    {
+      "id": "nanling",
+      "code": "02",
+      "name": "南岭校区",
+      "shortName": "南岭 (工科)",
+      "tag": "已实测验证",
+      "buildings": [
+        {
+          "id": "65",
+          "code": "65",
+          "name": "南岭-逸夫楼",
+          "shortName": "逸夫楼",
+          "tag": "工科主力",
+          "totalFloors": 7,
+          "description": "南岭校区核心教学楼"
+        },
+        {
+          "id": "73",
+          "code": "73",
+          "name": "南岭-(一)",
+          "shortName": "第一教学楼",
+          "tag": "一教",
+          "totalFloors": 5,
+          "description": "南岭校区第一教学楼"
+        },
+        {
+          "id": "82",
+          "code": "82",
+          "name": "南岭-(二)",
+          "shortName": "第二教学楼",
+          "tag": "二教",
+          "totalFloors": 5,
+          "description": "南岭校区第二教学楼"
+        }
+      ]
+    }
+  ]
+}

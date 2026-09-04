@@ -53,7 +53,8 @@
     {
       "resources": [
         "dashboard/*",
-        "icons/*"
+        "icons/*",
+        "data/*"
       ],
       "matches": [
         "<all_urls>"

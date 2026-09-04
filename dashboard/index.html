@@ -18,15 +18,12 @@
     <!-- Top Navigation Header: Campus, Time, Sync, Theme -->
     <header class="dash-header">
       <div class="header-left">
-        <!-- Focused Campus Badge (Nanling Dedicated) -->
-        <div class="campus-selector-box" title="南岭校区核心教学楼">
+        <!-- Dynamic Campus Selector -->
+        <div class="campus-selector-box" title="切换查询校区">
           <span class="selector-label">当前校区</span>
-          <div
-            style="font-weight: 700; font-size: 13px; color: var(--text-highlight); display: flex; align-items: center; gap: 6px; padding: 2px 4px;">
-            <span>南岭校区（工科）</span>
-            <span class="memory-tag"
-              style="background: rgba(2, 132, 199, 0.12); color: var(--text-highlight); border: 1px solid rgba(2, 132, 199, 0.3);">逸夫楼 / 一教 / 二教</span>
-          </div>
+          <select id="campusSelect" class="campus-select">
+            <option value="02">南岭校区 (工科)</option>
+          </select>
         </div>
       </div>
 
@@ -171,40 +168,37 @@
           <div class="loading-text-sub">恪守 100% 真实教务源原则 · 绝不使用虚假模拟数据</div>
         </div>
 
-        <!-- Hard-Fail Barrier Panel (Shown when unauthenticated or network error) -->
+        <!-- Barrier Panel (Shown when unauthenticated or network error) -->
         <div id="realDataBarrierPanel" class="real-data-barrier-panel" style="display: none;">
           <div class="barrier-icon-large">🔒</div>
-          <h2 class="barrier-title" id="barrierTitle">未检测到 WebVPN 登录凭据</h2>
+          <h2 class="barrier-title" id="barrierTitle">未连接至吉大教务服务</h2>
           <p class="barrier-subtitle" id="barrierSubtitle">
-            本自习仪表盘坚守 <strong>100% 真实教务数据</strong> 原则，严禁使用任何虚假模拟数据误导自习选座。请先登录吉大 WebVPN。
+            无法拉取教务实时排课。如在校外请登录吉大 WebVPN；如在校内请确认已登录吉大校园网认证。
           </p>
-          <div class="barrier-core-rule">
-            <span>🛡️ 核心准则：非真实即阻断报错 · 绝不输出任何伪造数据</span>
-          </div>
           <div class="barrier-actions-row">
             <a href="https://vpn.jlu.edu.cn/" target="_blank" rel="noopener noreferrer" class="btn-login-webvpn"
               id="btnLoginWebVPN">
-              🔑 登录吉大 WebVPN (vpn.jlu.edu.cn) ↗
+              登录 WebVPN ↗
             </a>
             <button class="btn-retry-real-fetch" id="btnRetryRealFetch">
-              🔄 重新检测并拉取真实排课
+              重新获取排课
             </button>
           </div>
           <div class="barrier-diagnostics-box">
             <details>
-              <summary>查看接口诊断详情 (Diagnostics)</summary>
-              <pre id="barrierDiagnosticsText">正在等待连接...</pre>
+              <summary>接口诊断信息 (Diagnostics)</summary>
+              <pre id="barrierDiagnosticsText">等待连接...</pre>
             </details>
           </div>
         </div>
 
-        <!-- Real Data Content Area (Shown ONLY when real data is successfully loaded) -->
+        <!-- Real Data Content Area -->
         <div id="realDataContentArea" style="display: none;">
-          <!-- Building Macro Overview (Progress Rings & Cards) -->
+          <!-- Building Macro Overview -->
           <section class="macro-section">
             <div class="macro-header">
-              <h2 class="macro-title">🏢 教学楼宏观占用看板</h2>
-              <div class="macro-summary" id="macroCampusSummary">南岭校区 · 共 6 栋教学楼 · 此时综合空闲率 68%</div>
+              <h2 class="macro-title">🏢 教学楼占用概览</h2>
+              <div class="macro-summary" id="macroCampusSummary">正在计算教学楼空闲率...</div>
             </div>
             <div class="building-cards-grid" id="buildingCardsGrid">
               <!-- Dynamically injected building cards -->
