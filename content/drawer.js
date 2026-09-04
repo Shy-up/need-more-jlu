@@ -12,7 +12,6 @@ window.NMJDrawer = (function() {
   let drawerPanel = null;
   let resizerEl = null;
   let iframeEl = null;
-  let attBarEl = null;
   let isResizing = false;
 
   const DEFAULT_WIDTH = 840;
@@ -45,9 +44,6 @@ window.NMJDrawer = (function() {
           </div>
         </div>
 
-        <!-- Attachment Quick Bar (if notice has attachments) -->
-        <div class="nmj-drawer-attachment-bar" id="nmj-drawer-attachment-bar" style="display: none;"></div>
-
         <div class="nmj-drawer-frame-wrap" id="nmj-drawer-frame-wrap">
           <div class="nmj-frame-loading" id="nmj-frame-loading">
             <div class="nmj-spinner"></div>
@@ -64,7 +60,6 @@ window.NMJDrawer = (function() {
     drawerPanel = document.getElementById('nmj-drawer');
     resizerEl = document.getElementById('nmj-drawer-resizer');
     iframeEl = document.getElementById('nmj-drawer-iframe');
-    attBarEl = document.getElementById('nmj-drawer-attachment-bar');
 
     // Restore saved drawer width
     const savedWidth = parseInt(localStorage.getItem('nmj_drawer_width') || String(DEFAULT_WIDTH), 10);
@@ -167,13 +162,12 @@ window.NMJDrawer = (function() {
       (idoc.head || idoc.documentElement).appendChild(style);
     }
 
-    // 3. Process & Enhance Attachment Download Links
+    // 3. Process & Enhance In-body Attachment Download Links (确保正文及文末原生附件顺畅直接下载)
     try {
       const vpnPrefixMatch = window.location.pathname.match(/^(\/https\/[0-9a-fA-F]+)/);
       const vpnPrefix = vpnPrefixMatch ? vpnPrefixMatch[1] : '';
 
       const allLinks = idoc.querySelectorAll('a');
-      const foundAttachments = [];
 
       allLinks.forEach(a => {
         const rawHref = a.getAttribute('href') || '';
@@ -188,52 +182,16 @@ window.NMJDrawer = (function() {
 
         if (isAttachment) {
           // Resolve relative paths properly under WebVPN
-          let fullHref = rawHref;
           if (vpnPrefix && rawHref.startsWith('/defaultroot/')) {
-            fullHref = vpnPrefix + rawHref;
-            a.href = fullHref;
-          } else {
-            fullHref = a.href;
+            a.href = vpnPrefix + rawHref;
           }
 
           // Force download capability on click
           a.setAttribute('download', '');
           a.setAttribute('target', '_blank');
           a.classList.add('nmj-inbody-att-link');
-
-          // Clean display name
-          const fileName = text.replace(/^附件\s*[:：]?\s*/i, '') || '附件下载';
-          if (!foundAttachments.some(att => att.href === fullHref)) {
-            foundAttachments.push({
-              name: text || fileName,
-              href: fullHref
-            });
-          }
         }
       });
-
-      // Update Attachment Quick Bar in Drawer Header
-      if (attBarEl) {
-        if (foundAttachments.length > 0) {
-          attBarEl.style.display = 'flex';
-          attBarEl.innerHTML = `
-            <div class="nmj-att-header-inner">
-              <span class="nmj-att-badge">📎 检测到本通知包含 ${foundAttachments.length} 个附件（点击直接下载）：</span>
-              <div class="nmj-att-list">
-                ${foundAttachments.map(att => `
-                  <a href="${att.href}" download target="_blank" class="nmj-att-header-btn" title="点击立即下载 ${escapeHtml(att.name)}">
-                    <span>💾</span>
-                    <span class="nmj-att-btn-name">${escapeHtml(att.name)}</span>
-                  </a>
-                `).join('')}
-              </div>
-            </div>
-          `;
-        } else {
-          attBarEl.style.display = 'none';
-          attBarEl.innerHTML = '';
-        }
-      }
     } catch (e) {
       console.warn('[need_more_jlu] 附件处理提示:', e);
     }
@@ -247,10 +205,6 @@ window.NMJDrawer = (function() {
 
     if (nativeLink) nativeLink.href = item.url;
     if (loader) loader.style.display = 'flex';
-    if (attBarEl) {
-      attBarEl.style.display = 'none';
-      attBarEl.innerHTML = '';
-    }
 
     // Slide in
     drawerOverlay.classList.add('active');
@@ -268,10 +222,6 @@ window.NMJDrawer = (function() {
     drawerOverlay.classList.remove('active');
     drawerPanel.classList.remove('active');
     document.body.style.overflow = '';
-    if (attBarEl) {
-      attBarEl.style.display = 'none';
-      attBarEl.innerHTML = '';
-    }
     if (iframeEl) {
       iframeEl.src = 'about:blank';
     }
