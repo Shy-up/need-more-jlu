@@ -941,9 +941,11 @@
 
         const resp = await fetch(url, {
           method: 'POST',
+          credentials: 'include',
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-            'X-Requested-With': 'XMLHttpRequest'
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json, text/javascript, */*; q=0.01'
           },
           body: params.toString()
         });
@@ -1551,7 +1553,7 @@
                 : '与吉大教务处排课服务 (cxkxjs.do) 通信失败或校园网络中断，未能拉取排课数据。'}
             </div>
             <div class="empty-state-actions">
-              ${isAuth ? `<a href="https://vpn.jlu.edu.cn" target="_blank" class="btn-empty-action primary">🔗 登录吉大 WebVPN</a>` : ''}
+              ${isAuth ? `<a href="https://vpn.jlu.edu.cn/https/48714f71342f7a336d582f7e2857373756c9770f46c0c2b0ff87560d5a42f1/jwapp/sys/kxjas/*default/index.do?THEME=purple&EMAP_LANG=en#/kxjscx" target="_blank" class="btn-empty-action primary">🔗 激活吉大教务空闲教室会话</a>` : ''}
               <button class="btn-empty-action secondary" id="btnRetryEmptyFetch">🔄 重新获取排课数据</button>
             </div>
           </div>

@@ -57,6 +57,9 @@ async function handleFetchTimeline(payload = {}) {
   // Slots 1 to 12 (100% matches official schedule slices)
   const slots = payload.slots || [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
   
+  // 1. First ensure session handshake with JLU EMAP system (Auto warm-up)
+  await ensureJluSessionWarmup();
+
   // Parallel fetch for each slot across requested buildings
   const slotPromises = slots.map(slotNum => {
     return handleFetchClassrooms({
@@ -91,6 +94,40 @@ async function handleFetchTimeline(payload = {}) {
     })),
     queryMeta: payload
   };
+}
+
+/**
+ * Automatically warm-up & activate the EMAP educational session.
+ * When logging into WebVPN, the WebVPN ticket cookie is present, but the EMAP sub-system 
+ * requires visiting the entrance page to initialize JSESSIONID / _WEU session tokens.
+ */
+let lastWarmupTime = 0;
+async function ensureJluSessionWarmup() {
+  const now = Date.now();
+  // Warm up at most once every 60 seconds
+  if (now - lastWarmupTime < 60000) return;
+  lastWarmupTime = now;
+
+  const webvpnHash = '/https/48714f71342f7a336d582f7e2857373756c9770f46c0c2b0ff87560d5a42f1';
+  const warmupUrls = [
+    `https://vpn.jlu.edu.cn${webvpnHash}/jwapp/sys/kxjas/*default/index.do?THEME=purple&EMAP_LANG=en`,
+    `https://iedu.jlu.edu.cn/jwapp/sys/kxjas/*default/index.do?THEME=purple&EMAP_LANG=en`
+  ];
+
+  for (const url of warmupUrls) {
+    try {
+      await fetch(url, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'User-Agent': navigator.userAgent
+        }
+      });
+    } catch (e) {
+      // Ignore network errors in warm-up, proceed to main requests
+    }
+  }
 }
 
 async function handleFetchClassrooms(payload = {}) {
@@ -146,19 +183,26 @@ async function handleFetchClassrooms(payload = {}) {
   // Dual-Channel support: WebVPN encrypted gateway & Campus LAN direct
   const webvpnHash = '/https/48714f71342f7a336d582f7e2857373756c9770f46c0c2b0ff87560d5a42f1';
   const webvpnUrl = `https://vpn.jlu.edu.cn${webvpnHash}/jwapp/sys/kxjas/modules/kxjscx/cxkxjs.do?vpn-12-o2-iedu.jlu.edu.cn`;
+  const webvpnReferer = `https://vpn.jlu.edu.cn${webvpnHash}/jwapp/sys/kxjas/*default/index.do?THEME=purple&EMAP_LANG=en`;
   const directUrl = `https://iedu.jlu.edu.cn/jwapp/sys/kxjas/modules/kxjscx/cxkxjs.do`;
+  const directReferer = `https://iedu.jlu.edu.cn/jwapp/sys/kxjas/*default/index.do?THEME=purple&EMAP_LANG=en`;
 
   // First try WebVPN endpoint, if unauthenticated try direct LAN endpoint
-  const targetUrls = [webvpnUrl, directUrl];
+  const targetEndpoints = [
+    { url: webvpnUrl, referer: webvpnReferer, origin: 'https://vpn.jlu.edu.cn' },
+    { url: directUrl, referer: directReferer, origin: 'https://iedu.jlu.edu.cn' }
+  ];
   let lastError = null;
 
-  for (const url of targetUrls) {
+  for (const endpoint of targetEndpoints) {
     try {
-      const resp = await fetch(url, {
+      const resp = await fetch(endpoint.url, {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-          'X-Requested-With': 'XMLHttpRequest'
+          'X-Requested-With': 'XMLHttpRequest',
+          'Accept': 'application/json, text/javascript, */*; q=0.01'
         },
         body: params.toString()
       });
