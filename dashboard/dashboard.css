@@ -1680,13 +1680,13 @@ body.theme-light .timeline-slot-dot:nth-child(8)::after {
   flex-direction: column;
   align-items: center;
   margin: 16px 0 24px 0;
-  padding: 16px;
+  padding: 18px;
   background: var(--bg-secondary);
   border: 1px solid var(--border-glow);
   border-radius: var(--radius-lg);
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
   animation: fadeIn 0.3s ease-out;
-  max-width: 380px;
+  max-width: 480px;
   width: 100%;
 }
 
@@ -1695,24 +1695,25 @@ body.theme-light .timeline-slot-dot:nth-child(8)::after {
 }
 
 .qr-card-badge {
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 700;
   color: #38bdf8;
   background: rgba(56, 189, 248, 0.12);
   border: 1px solid rgba(56, 189, 248, 0.3);
-  padding: 4px 12px;
+  padding: 5px 14px;
   border-radius: 20px;
   display: inline-flex;
   align-items: center;
 }
 
 .qr-frame-wrapper {
-  width: 300px;
-  height: 310px;
+  width: 100%;
+  max-width: 440px;
+  height: 520px;
   background: #ffffff;
   border-radius: var(--radius-md);
   overflow: hidden;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
   display: flex;
   align-items: center;
   justify-content: center;

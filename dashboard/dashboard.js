@@ -2084,6 +2084,8 @@
     }
   }
 
+  let qrFlowStartTime = 0;
+
   function startEmbeddedQrLoginFlow() {
     const qrContainer = document.getElementById('barrierQrContainer');
     const iframe = document.getElementById('qrLoginIframe');
@@ -2099,12 +2101,15 @@
     }
 
     if (statusText) {
-      statusText.textContent = '正在加载统一认证微信登录二维码... 扫码后将自动完成登录';
+      statusText.textContent = '请使用微信扫描下方二维码完成吉大统一身份认证... 扫码后自动刷新';
     }
 
-    // Start auto polling for login completion
+    // Record flow start timestamp to prevent existing stale cookies from triggering instant refresh
+    qrFlowStartTime = Date.now();
+
+    // Start auto polling for login completion after a short grace period (allows iframe to render QR code)
     stopQrLoginPolling();
-    qrPollTimer = setInterval(checkLoginAndAutoReload, 2000);
+    qrPollTimer = setInterval(checkLoginAndAutoReload, 3000);
   }
 
   function stopQrLoginPolling() {
@@ -2115,20 +2120,24 @@
   }
 
   async function checkLoginAndAutoReload() {
+    // Grace period: do not check within first 6 seconds of opening QR frame to let user scan
+    if (Date.now() - qrFlowStartTime < 6000) {
+      return;
+    }
+
     if (typeof chrome === 'undefined' || !chrome.runtime || !chrome.runtime.sendMessage) {
       return;
     }
 
     chrome.runtime.sendMessage({ type: 'CHECK_AUTH_STATUS' }, async (res) => {
       if (res && res.isLoggedIn) {
-        // Ticket detected!
+        // Authenticated session verified!
         stopQrLoginPolling();
         const statusText = document.getElementById('qrStatusText');
         if (statusText) {
-          statusText.innerHTML = '🎉 <strong>微信扫码认证成功！正在激活教务会话并刷新数据...</strong>';
+          statusText.innerHTML = '🎉 <strong>微信扫码认证成功！正在同步教务排课并刷新...</strong>';
         }
 
-        // Trigger reload with smooth transition
         setTimeout(() => {
           hideBarrierPanel();
           loadParallelTimelineData();

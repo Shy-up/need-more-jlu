@@ -23,18 +23,17 @@ chrome.runtime.onInstalled.addListener(() => {
 // Real Data API Bridge for Free Classrooms (cxkxjs.do)
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.type === 'CHECK_AUTH_STATUS') {
-    chrome.cookies.get({ url: 'https://vpn.jlu.edu.cn', name: 'wengine_vpn_ticketvpn_jlu_edu_cn' }, (vpnCookie) => {
-      chrome.cookies.get({ url: 'https://vpn.jlu.edu.cn', name: 'CASTGC' }, (casCookie) => {
-        const hasVpnTicket = Boolean(vpnCookie && vpnCookie.value);
-        const hasCasTgc = Boolean(casCookie && casCookie.value);
-        const isLoggedIn = hasVpnTicket || hasCasTgc;
-        sendResponse({
-          isLoggedIn,
-          hasVpnTicket,
-          hasCasTgc,
-          ticket: hasVpnTicket ? vpnCookie.value : null
-        });
-      });
+    // Check if user has active ticket AND if session warmup succeeds
+    chrome.cookies.get({ url: 'https://vpn.jlu.edu.cn', name: 'wengine_vpn_ticketvpn_jlu_edu_cn' }, async (vpnCookie) => {
+      const hasVpnTicket = Boolean(vpnCookie && vpnCookie.value);
+      if (!hasVpnTicket) {
+        sendResponse({ isLoggedIn: false });
+        return;
+      }
+
+      // Verify that WebVPN session can actually fetch EMAP system
+      const verified = await verifyJluSessionActive();
+      sendResponse({ isLoggedIn: verified, ticket: vpnCookie.value });
     });
     return true; // async sendResponse
   }
@@ -136,6 +135,35 @@ async function ensureJluSessionWarmup() {
     } catch (e) {
       // Ignore network errors in warm-up, proceed to main requests
     }
+  }
+}
+
+/**
+ * Strictly verifies whether WebVPN session is currently authenticated.
+ * Prevents premature reload while user is still viewing the QR code.
+ */
+async function verifyJluSessionActive() {
+  try {
+    const webvpnHash = '/https/48714f71342f7a336d582f7e2857373756c9770f46c0c2b0ff87560d5a42f1';
+    const checkUrl = `https://vpn.jlu.edu.cn${webvpnHash}/jwapp/sys/kxjas/*default/index.do?THEME=purple&EMAP_LANG=en`;
+    const resp = await fetch(checkUrl, {
+      method: 'GET',
+      credentials: 'include',
+      redirect: 'manual'
+    });
+
+    if (resp.status === 200) {
+      const text = await resp.text();
+      // If still redirected to login or containing Not login/login form, not yet logged in
+      if (text.includes('cas_login') || text.includes('统一身份认证') || text.includes('401.png') || text.includes('Not login!')) {
+        return false;
+      }
+      // Successfully reached actual EMAP SPA shell
+      return text.includes('kxjas') || text.includes('EMAP');
+    }
+    return false;
+  } catch (e) {
+    return false;
   }
 }
 
