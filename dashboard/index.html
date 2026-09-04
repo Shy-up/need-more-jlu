@@ -218,12 +218,39 @@
           <!-- Building Macro Overview -->
           <section class="macro-section">
             <div class="macro-header">
-              <h2 class="macro-title">🏢 教学楼占用概览</h2>
+              <div class="macro-title-group">
+                <h2 class="macro-title">🏢 教学楼占用概览</h2>
+                <span class="macro-badge" id="macroBadgeText">推荐自习楼</span>
+              </div>
               <div class="macro-summary" id="macroCampusSummary">正在计算教学楼空闲率...</div>
             </div>
-            <div class="building-cards-grid" id="buildingCardsGrid">
-              <!-- Dynamically injected building cards -->
+
+            <!-- Recommended Buildings Grid (Only displays recommended buildings, or empty state) -->
+            <div class="building-cards-grid recommended-grid" id="buildingCardsGrid">
+              <!-- Dynamically injected recommended building cards or empty prompt -->
             </div>
+
+            <!-- Low-key GitHub contribution tip when recommendations are present -->
+            <div class="repo-encourage-tip" id="repoEncourageTip" style="display: none;">
+              <span class="tip-icon">✨</span>
+              <span class="tip-text">觉得推荐不准或有更好的自习楼？欢迎前往 <a href="https://github.com/Shy-up/need-more-jlu" target="_blank" class="repo-link" id="repoTipLink">GitHub 仓库修改或补充推荐理由 ↗</a></span>
+            </div>
+
+            <!-- Collapsible: All Non-recommended Buildings (Collapsed by default) -->
+            <details class="all-buildings-collapse" id="allBuildingsCollapse">
+              <summary class="all-buildings-summary" id="allBuildingsSummary">
+                <span class="summary-left">
+                  <span class="summary-icon">🏛️</span>
+                  <span class="summary-title" id="allBuildingsSummaryText">展开查看该校区其余全部教学楼</span>
+                </span>
+                <span class="summary-arrow" id="summaryArrow">▾</span>
+              </summary>
+              <div class="all-buildings-content">
+                <div class="building-cards-grid other-buildings-grid" id="otherBuildingCardsGrid">
+                  <!-- Dynamically injected remaining building cards -->
+                </div>
+              </div>
+            </details>
           </section>
 
           <!-- Micro Floor Cabin View (Like Movie Theater / Flight Seat Map) -->

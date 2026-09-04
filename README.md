@@ -47,13 +47,33 @@
 
 ---
 
+## 💡 自习推荐教学楼与体验评价（社区共建）
+
+自习仪表盘首页仅优先突出展示**学长学姐精选推荐**的优质教学楼，其余楼栋默认收纳于“展开查看全部教学楼”中。
+
+* 推荐配置文件：[`data/recommendations.json`](file:///b:/workspace/01_active/need_more_jlu/data/recommendations.json)
+* 欢迎前往 GitHub 仓库提交 PR：[https://github.com/Shy-up/need-more-jlu](https://github.com/Shy-up/need-more-jlu)
+* 贡献方式非常简单，只需在 `recommendations` 数组中添加或修改对应校区、楼栋代码与推荐理由即可：
+
+```json
+{
+  "campusCode": "02",
+  "buildingCode": "65",
+  "buildingName": "南岭-逸夫楼",
+  "reason": "教室非常多"
+}
+```
+
+---
+
 ## 📂 项目结构
 
 ```
 need_more_jlu/
 ├── manifest.json              # Chrome Manifest V3 配置
 ├── data/
-│   └── campuses.json          # 核心：全校校区与教学楼独立数据配置（社区维护入口）
+│   ├── campuses.json          # 全校校区与教学楼官方基础数据（全量 128 栋）
+│   └── recommendations.json   # 各校区自习推荐楼栋与独家体验评价配置（社区贡献入口）
 ├── dashboard/
 │   ├── index.html             # 自习直达仪表盘页面
 │   ├── dashboard.css          # 现代化空间舱位图样式

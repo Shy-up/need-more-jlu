@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "version": "1.0.0",
+  "description": "吉林大学各校区自习推荐教学楼配置。社区贡献者仅需在此添加或修改教学楼代码与推荐理由即可。",
+  "githubRepoUrl": "https://github.com/Shy-up/need-more-jlu",
+  "recommendations": [
+    {
+      "campusCode": "02",
+      "buildingCode": "65",
+      "buildingName": "南岭-逸夫楼",
+      "reason": "教室非常多"
+    },
+    {
+      "campusCode": "02",
+      "buildingCode": "73",
+      "buildingName": "南岭-(一)",
+      "reason": "阶梯教室打野"
+    },
+    {
+      "campusCode": "02",
+      "buildingCode": "82",
+      "buildingName": "南岭-(二)",
+      "reason": "看缘分"
+    }
+  ]
+}

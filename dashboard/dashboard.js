@@ -27,13 +27,52 @@
   let campusConfig = null;
   let currentCampus = null;
   let currentBuildings = [];
+  let recommendationsConfig = null;
+
+  // Load building recommendations from data/recommendations.json
+  async function loadRecommendationsConfig() {
+    try {
+      const configUrl = (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getURL)
+        ? chrome.runtime.getURL('data/recommendations.json')
+        : '../data/recommendations.json';
+      const res = await fetch(configUrl);
+      if (res.ok) {
+        recommendationsConfig = await res.json();
+      }
+    } catch (e) {
+      console.warn('[need_more_jlu] 读取 data/recommendations.json 失败，启用保底南岭推荐:', e);
+    }
+
+    if (!recommendationsConfig || !Array.isArray(recommendationsConfig.recommendations)) {
+      recommendationsConfig = {
+        githubRepoUrl: 'https://github.com/Shy-up/need-more-jlu',
+        recommendations: [
+          { campusCode: '02', buildingCode: '65', buildingName: '南岭-逸夫楼', reason: '教室非常多' },
+          { campusCode: '02', buildingCode: '73', buildingName: '南岭-(一)', reason: '阶梯教室打野' },
+          { campusCode: '02', buildingCode: '82', buildingName: '南岭-(二)', reason: '看缘分' }
+        ]
+      };
+    }
+  }
+
+  function getBuildingRecommendation(bldg, campusCode) {
+    if (!recommendationsConfig || !Array.isArray(recommendationsConfig.recommendations)) return null;
+    return recommendationsConfig.recommendations.find(r => {
+      const matchCampus = !r.campusCode || String(r.campusCode) === String(campusCode);
+      const matchCode = String(r.buildingCode) === String(bldg.code) || String(r.buildingCode) === String(bldg.id);
+      const matchName = r.buildingName && (bldg.name.includes(r.buildingName) || r.buildingName.includes(bldg.name));
+      return matchCampus && (matchCode || matchName);
+    }) || null;
+  }
 
   // Helper to sanitize buildingId
-  function getSanitizedBuildingId(availableBuildings) {
+  function getSanitizedBuildingId(availableBuildings, targetCampusCode) {
     const list = availableBuildings || currentBuildings;
+    const cCode = targetCampusCode || state.campusCode;
     let saved = localStorage.getItem('nmj_building');
     if (!saved || !list.some(b => b.id === saved)) {
-      saved = list.length > 0 ? list[0].id : '65';
+      const firstRec = list.find(b => getBuildingRecommendation(b, cCode));
+      saved = firstRec ? firstRec.id : (list.length > 0 ? list[0].id : '65');
       localStorage.setItem('nmj_building', saved);
     }
     return saved;
@@ -311,6 +350,8 @@
 
   // Load campus & buildings config from independent single file data/campuses.json
   async function loadCampusConfig() {
+    await loadRecommendationsConfig();
+
     try {
       const configUrl = (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getURL)
         ? chrome.runtime.getURL('data/campuses.json')
@@ -363,7 +404,7 @@
     currentCampus = campusConfig.campuses.find(c => c.code === campusSelect.value) || campusConfig.campuses[0];
     state.campusCode = currentCampus.code;
     currentBuildings = currentCampus.buildings || [];
-    state.buildingId = getSanitizedBuildingId(currentBuildings);
+    state.buildingId = getSanitizedBuildingId(currentBuildings, state.campusCode);
 
     campusSelect.addEventListener('change', (e) => {
       const newCode = e.target.value;
@@ -372,8 +413,12 @@
         currentCampus = targetCamp;
         state.campusCode = targetCamp.code;
         currentBuildings = targetCamp.buildings || [];
-        state.buildingId = getSanitizedBuildingId(currentBuildings);
+        state.buildingId = getSanitizedBuildingId(currentBuildings, targetCamp.code);
         localStorage.setItem('nmj_campus', newCode);
+
+        // Reset all-buildings collapsible section to closed
+        const collapseEl = document.getElementById('allBuildingsCollapse');
+        if (collapseEl) collapseEl.open = false;
 
         buildingRoomsMap = {};
         currentBuildings.forEach(b => {
@@ -1439,56 +1484,143 @@
   // UI Rendering: Macro Overview & Floor Cabin Map
   // ==========================================================================
 
+  function syncBuildingCardSelectedState() {
+    document.querySelectorAll('.bldg-card').forEach(c => {
+      if (c.dataset.bldgId === state.buildingId) {
+        c.classList.add('selected');
+      } else {
+        c.classList.remove('selected');
+      }
+    });
+  }
+
+  function createBuildingCardElement(bldg, rec) {
+    const rooms = buildingRoomsMap[bldg.id] || [];
+    const validRooms = rooms.filter(r => !r.isClosed);
+    let freeCount = 0;
+
+    validRooms.forEach(r => {
+      if (getRoomFilterStatus(r, state.selectedSlots) === 'status-free') {
+        freeCount++;
+      }
+    });
+
+    const percentage = validRooms.length > 0 ? Math.round((freeCount / validRooms.length) * 100) : 0;
+    const isSelected = (bldg.id === state.buildingId);
+
+    const card = document.createElement('div');
+    card.className = `bldg-card ${isSelected ? 'selected' : ''}`;
+    card.dataset.bldgId = bldg.id;
+    card.innerHTML = `
+      <div class="bldg-card-header">
+        <span class="bldg-name">${bldg.shortName}</span>
+        ${rec ? `<span class="bldg-rec-tag">推荐</span>` : ''}
+      </div>
+      ${rec && rec.reason ? `<div class="bldg-rec-reason" title="${rec.reason}">💡 ${rec.reason}</div>` : ''}
+      <div class="bldg-stats-row">
+        <div class="bldg-free-count">${freeCount} <small>/ ${validRooms.length} 间可用</small></div>
+        <div class="bldg-percentage-ring">${percentage}%</div>
+      </div>
+      <div class="bldg-progress-bar">
+        <div class="bldg-progress-fill" style="width: ${percentage}%;"></div>
+      </div>
+    `;
+
+    card.addEventListener('click', () => {
+      state.buildingId = bldg.id;
+      localStorage.setItem('nmj_building', state.buildingId);
+      syncBuildingCardSelectedState();
+      renderFloorCabinMap();
+    });
+
+    return { card, validCount: validRooms.length, freeCount };
+  }
+
   function updateBuildingMacroCards() {
     const grid = document.getElementById('buildingCardsGrid');
+    const otherGrid = document.getElementById('otherBuildingCardsGrid');
+    const tipEl = document.getElementById('repoEncourageTip');
+    const summaryTextEl = document.getElementById('allBuildingsSummaryText');
+    const badgeEl = document.getElementById('macroBadgeText');
+    const collapseEl = document.getElementById('allBuildingsCollapse');
     if (!grid) return;
+
     grid.innerHTML = '';
+    if (otherGrid) otherGrid.innerHTML = '';
+
+    const recommendedBuildings = [];
+    const otherBuildings = [];
+
+    currentBuildings.forEach(bldg => {
+      const rec = getBuildingRecommendation(bldg, state.campusCode);
+      if (rec) {
+        recommendedBuildings.push({ bldg, rec });
+      } else {
+        otherBuildings.push({ bldg, rec: null });
+      }
+    });
 
     let campusTotalRooms = 0;
     let campusTotalFree = 0;
 
-    currentBuildings.forEach(bldg => {
-      const rooms = buildingRoomsMap[bldg.id] || [];
-      const validRooms = rooms.filter(r => !r.isClosed);
-      let freeCount = 0;
+    const repoUrl = (recommendationsConfig && recommendationsConfig.githubRepoUrl)
+      ? recommendationsConfig.githubRepoUrl
+      : 'https://github.com/Shy-up/need-more-jlu';
 
-      validRooms.forEach(r => {
-        if (getRoomFilterStatus(r, state.selectedSlots) === 'status-free') {
-          freeCount++;
-        }
+    // 1. Render Recommended Buildings Grid
+    if (recommendedBuildings.length > 0) {
+      if (badgeEl) badgeEl.textContent = `推荐自习楼 (${recommendedBuildings.length} 栋)`;
+      recommendedBuildings.forEach(({ bldg, rec }) => {
+        const { card, validCount, freeCount } = createBuildingCardElement(bldg, rec);
+        campusTotalRooms += validCount;
+        campusTotalFree += freeCount;
+        grid.appendChild(card);
       });
 
-      campusTotalRooms += validRooms.length;
-      campusTotalFree += freeCount;
-
-      const percentage = validRooms.length > 0 ? Math.round((freeCount / validRooms.length) * 100) : 0;
-      const isSelected = (bldg.id === state.buildingId);
-
-      const card = document.createElement('div');
-      card.className = `bldg-card ${isSelected ? 'selected' : ''}`;
-      card.innerHTML = `
-        <div class="bldg-card-header">
-          <span class="bldg-name">${bldg.shortName}</span>
-        </div>
-        <div class="bldg-stats-row">
-          <div class="bldg-free-count">${freeCount} <small>/ ${validRooms.length} 间可用</small></div>
-          <div class="bldg-percentage-ring">${percentage}%</div>
-        </div>
-        <div class="bldg-progress-bar">
-          <div class="bldg-progress-fill" style="width: ${percentage}%;"></div>
+      if (tipEl) {
+        tipEl.style.display = 'flex';
+        const link = document.getElementById('repoTipLink');
+        if (link) link.href = repoUrl;
+      }
+    } else {
+      if (badgeEl) badgeEl.textContent = '暂无推荐';
+      grid.innerHTML = `
+        <div class="no-recommend-card">
+          <div class="no-rec-body">
+            <div class="no-rec-icon">🧭</div>
+            <div class="no-rec-content">
+              <div class="no-rec-title">当前校区暂无学长学姐常驻自习推荐</div>
+              <div class="no-rec-desc">你在【${currentCampus ? currentCampus.name : '该校区'}】常去哪栋教学楼自习？欢迎前往 GitHub 仓库提交 PR 为本校区推荐优质楼栋与打野避坑指南！</div>
+            </div>
+          </div>
+          <a href="${repoUrl}" target="_blank" class="btn-rec-contribute">
+            <span>🐙 提交校区自习推荐</span>
+            <span class="arrow">↗</span>
+          </a>
         </div>
       `;
+      if (tipEl) tipEl.style.display = 'none';
+    }
 
-      card.addEventListener('click', () => {
-        state.buildingId = bldg.id;
-        localStorage.setItem('nmj_building', state.buildingId);
-        updateBuildingMacroCards();
-        renderFloorCabinMap();
+    // 2. Render Collapsible All / Other Buildings Grid
+    if (otherBuildings.length > 0) {
+      if (collapseEl) collapseEl.style.display = 'block';
+      if (summaryTextEl) {
+        summaryTextEl.textContent = recommendedBuildings.length > 0
+          ? `展开查看该校区其余全部教学楼 (共 ${otherBuildings.length} 栋)`
+          : `展开查看该校区全部教学楼 (共 ${otherBuildings.length} 栋)`;
+      }
+      otherBuildings.forEach(({ bldg, rec }) => {
+        const { card, validCount, freeCount } = createBuildingCardElement(bldg, rec);
+        campusTotalRooms += validCount;
+        campusTotalFree += freeCount;
+        if (otherGrid) otherGrid.appendChild(card);
       });
+    } else {
+      if (collapseEl) collapseEl.style.display = 'none';
+    }
 
-      grid.appendChild(card);
-    });
-
+    // 3. Update Campus Summary
     const campusSummaryEl = document.getElementById('macroCampusSummary');
     if (campusSummaryEl) {
       const campusPercentage = campusTotalRooms > 0 ? Math.round((campusTotalFree / campusTotalRooms) * 100) : 0;
