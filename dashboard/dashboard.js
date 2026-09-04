@@ -806,7 +806,8 @@
       const now = new Date();
       const hours = String(now.getHours()).padStart(2, '0');
       const minutes = String(now.getMinutes()).padStart(2, '0');
-      const timeStr = `${hours}:${minutes}`;
+      const seconds = String(now.getSeconds()).padStart(2, '0');
+      const timeStr = `${hours}:${minutes}:${seconds}`;
 
       if (liveClockEl) liveClockEl.textContent = timeStr;
 
@@ -826,7 +827,7 @@
         if (isQueryingToday()) {
           const timeInfo = getCurrentTimeSlotInfo();
           if (timeInfo.type === 'in_session') {
-            slotBadgeEl.textContent = `当前进行中：${timeInfo.slotDef.name} (${timeInfo.slotDef.time})`;
+            slotBadgeEl.textContent = `进行中：${timeInfo.slotDef.name} (${timeInfo.slotDef.time})`;
           } else {
             slotBadgeEl.textContent = timeInfo.badgeText;
           }
@@ -837,7 +838,7 @@
     }
 
     update();
-    setInterval(update, 20000);
+    setInterval(update, 1000);
   }
 
   // ==========================================================================

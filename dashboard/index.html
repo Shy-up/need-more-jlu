@@ -30,17 +30,20 @@
         </div>
       </div>
 
-      <div class="header-right">
-        <!-- System Time Perception -->
+      <!-- Center Cockpit: Enlarged System Time to Seconds -->
+      <div class="header-center">
         <div class="time-perception-card" id="timePerceptionCard">
-          <div class="time-main">
-            <span class="live-dot"></span>
-            <span class="live-clock" id="liveClock">--:--</span>
+          <div class="time-clock-row">
+            <span class="live-clock" id="liveClock">--:--:--</span>
+            <div class="time-status-col">
+              <div class="current-slot-badge" id="currentSlotBadge">当前节次：--</div>
+              <div class="time-sub" id="timeMeta">--</div>
+            </div>
           </div>
-          <div class="time-sub" id="timeMeta">--</div>
-          <div class="current-slot-badge" id="currentSlotBadge">当前节次：--</div>
         </div>
+      </div>
 
+      <div class="header-right">
         <button id="syncDataBtn" class="btn-icon" title="重新获取教务处排课数据">
           <span class="sync-icon">🔄</span>
         </button>
