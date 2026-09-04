@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <title>need_more_jlu 扩展枢纽</title>
+  <title>need_more_jlu</title>
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
@@ -10,51 +10,43 @@
     <!-- Header -->
     <header class="popup-header">
       <div class="brand">
-        <div class="logo">🏛️</div>
-        <div>
-          <div class="title">need_more_jlu</div>
-          <div class="subtitle">吉大校园增强 · 渐进实用工具</div>
-        </div>
+        <span class="brand-title">need_more_jlu</span>
       </div>
-      <a href="../dashboard/index.html" target="_blank" class="full-screen-icon" title="全屏打开自习仪表盘">↗</a>
+      <a href="../options/options.html" target="_blank" class="settings-link" title="扩展设置">⚙️ 设置</a>
     </header>
 
-    <!-- Hero Feature: Study Classroom Dashboard -->
-    <div class="hero-feature-card">
-      <div class="hero-tag">🔥 核心高频刚需</div>
-      <h2 class="hero-title">吉大自习直达仪表盘</h2>
-      <p class="hero-desc">空间座舱选座 · 连坐安全感指数 · 一键隐藏机房与封闭实验室</p>
-      <button class="btn btn-hero" id="btn-open-dashboard">
-        🚀 立即打开自习仪表盘
+    <!-- Main Navigation Actions -->
+    <div class="actions-group">
+      <!-- 1. Classroom Study Dashboard -->
+      <button class="action-card action-primary" id="btn-open-dashboard" title="打开自习空教室仪表盘">
+        <div class="action-main">
+          <div class="action-title-row">
+            <span class="action-title">自习空教室仪表盘</span>
+            <span class="action-arrow">↗</span>
+          </div>
+          <div class="action-desc">全天节次排课 · 楼层舱位选座 · 实时空闲状态</div>
+        </div>
+      </button>
+
+      <!-- 2. Official OA Portal -->
+      <button class="action-card action-secondary" id="btn-open-oa" title="打开吉大官方 OA (WebVPN)">
+        <div class="action-main">
+          <div class="action-title-row">
+            <span class="action-title">吉大官方 OA</span>
+            <span class="action-arrow">↗</span>
+          </div>
+          <div class="action-desc">WebVPN 免密直达 · 原文保真侧边抽屉</div>
+        </div>
       </button>
     </div>
 
-    <!-- Secondary Feature: OA Toolbox Status -->
-    <div class="oa-toolbox-card">
-      <div class="oa-card-header">
-        <span class="oa-title">📋 官方 OA 极简工具箱</span>
-        <span class="oa-status-badge">已就绪</span>
-      </div>
-      <ul class="oa-feature-list">
-        <li><span>🛡️</span> 100% 官方原貌侧边抽屉（防篡改）</li>
-        <li><span>🚩</span> 「上次看到这里」隔离红线已激活</li>
-        <li><span>⚡</span> 零广告、零强制覆盖、全量透明</li>
-      </ul>
-      <button class="btn btn-secondary" id="btn-open-oa">
-        🌐 打开吉大官方 OA (WebVPN)
-      </button>
-    </div>
-
-    <!-- Quick Campus Memory Indicator -->
-    <div class="quick-status-row">
-      <span>常驻校区记忆：<strong id="popupCampusName">南岭校区（工科）</strong></span>
-      <a href="../dashboard/index.html" target="_blank" class="link-switch">进入配置 →</a>
-    </div>
-
-    <!-- Footer -->
+    <!-- Campus & Status Footer -->
     <footer class="popup-footer">
-      <span>need_more_jlu v2.0.0</span>
-      <a href="../options/options.html" target="_blank">更多选项 →</a>
+      <div class="campus-indicator">
+        <span class="campus-label">当前校区</span>
+        <span class="campus-name" id="popupCampusName">南岭校区 (工科)</span>
+      </div>
+      <span class="version-label">v2.0.0</span>
     </footer>
   </div>
 
