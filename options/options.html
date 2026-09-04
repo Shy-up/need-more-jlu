@@ -36,8 +36,7 @@
           <input type="checkbox" id="oa-tools-enabled" checked />
           <span>启用 吉大OA增强</span>
         </label>
-        <span class="help-text">侧边浏览和上次看到视觉增强
-        </span>
+        <span class="help-text">官方原貌抽屉秒开浏览与最近访问历史记录</span>
       </div>
 
       <div id="oa-sub-options"
@@ -45,71 +44,21 @@
         <div class="form-group" style="margin-bottom: 0;">
           <label class="checkbox-label">
             <input type="checkbox" id="drawer-preview-enabled" checked />
-            <span>启用侧边浏览</span>
+            <span>启用官方原貌侧边浏览</span>
           </label>
-          <span class="help-text">若OA显示或交互错误请关闭此项</span>
-        </div>
-
-        <div class="form-group" style="margin-bottom: 0;">
-          <label class="checkbox-label">
-            <input type="checkbox" id="seen-divider-enabled" checked />
-            <span>启用「上次看到这里」隔离红线</span>
-          </label>
-          <span class="help-text">标明自上次查阅以来新发布的公文</span>
-        </div>
-
-        <!-- Seen divider sub options & baseline record box -->
-        <div id="seen-divider-sub-options"
-          style="margin-left: 20px; padding-left: 12px; border-left: 2px dashed #cbd5e1; display: flex; flex-direction: column; gap: 12px;">
-          <!-- Baseline Record Box -->
-          <div id="current-baseline-box"
-            style="padding: 10px 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 12px; color: #475569; display: flex; flex-direction: column; gap: 4px;">
-            <div style="font-weight: 600; color: #b91c1c; display: flex; align-items: center; gap: 6px;">
-              <span>📍 上次看到位置：</span>
-              <span id="current-baseline-time" style="font-weight: normal; color: #94a3b8;"></span>
-            </div>
-            <div id="current-baseline-title"
-              style="color: #0f172a; font-weight: 600; line-height: 1.4; word-break: break-all;">暂无记录（首次进入 OA 时将自动确立）
-            </div>
-          </div>
-
-          <div>
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-              <label style="margin: 0; font-weight: 600; color: #334155; font-size: 13px;">🚩 刷新时间间隔</label>
-              <span id="opt-divider-interval-val"
-                style="font-family: monospace; font-weight: 700; color: #0284c7; font-size: 13px;">15 分钟 (默认)</span>
-            </div>
-            <input type="range" id="opt-divider-interval-slider" min="0" max="72" step="0.25" value="0.25"
-              style="width: 100%; cursor: pointer;" />
-            <div
-              style="display: flex; justify-content: space-between; font-size: 11px; color: #94a3b8; margin-top: 2px;">
-              <span>即刻刷新 (0h)</span>
-              <span>24 小时</span>
-              <span>48 小时</span>
-              <span>72 小时</span>
-            </div>
-            <div class="interval-presets" style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px;">
-              <button type="button" class="preset-pill-btn active" data-hours="0.25">15分钟 (默认)</button>
-              <button type="button" class="preset-pill-btn" data-hours="0.5">30分钟</button>
-              <button type="button" class="preset-pill-btn" data-hours="1">1小时</button>
-              <button type="button" class="preset-pill-btn" data-hours="6">6小时</button>
-              <button type="button" class="preset-pill-btn" data-hours="12">12小时</button>
-              <button type="button" class="preset-pill-btn" data-hours="24">24小时</button>
-              <button type="button" class="preset-pill-btn" data-hours="72">72小时</button>
-              <button type="button" class="preset-pill-btn" data-hours="0">0小时 (即刻)</button>
-            </div>
-            <span class="help-text" style="margin-top: 6px;">在此时间窗口内多次访问 OA，红线基准将保持锁定不被覆写；超出该时间后重新访问离开，将自动确立新基准。</span>
-          </div>
+          <span class="help-text">点击公文时在右侧弹出保真抽屉（按住 Ctrl/Cmd 点击仍可打开新标签页）</span>
         </div>
       </div>
     </div>
 
     <!-- Data Management Card -->
     <div class="settings-card">
-      <h2>💾 本地数据与缓存</h2>
-      <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-        <button type="button" class="btn btn-secondary" id="btn-clear-read">🚩 重置「上次看到这里」红线记录</button>
+      <h2>💾 本地数据与统计</h2>
+      <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
+        <button type="button" class="btn btn-secondary" id="btn-clear-history">🗑️ 清空公文阅读历史与统计</button>
       </div>
+      <span class="help-text" style="margin-top: 8px;">清空右下角悬浮框中记录的最近一周公文查阅历史及累计阅读报告总数。</span>
+    </div>
     </div>
 
     <!-- Dynamic Top Toast Notification -->

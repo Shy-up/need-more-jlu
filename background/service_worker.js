@@ -12,9 +12,7 @@ chrome.runtime.onInstalled.addListener(() => {
           theme: 'light',
           customWallpaper: '',
           oaToolsEnabled: true,
-          drawerEnabled: true,
-          seenDividerEnabled: true,
-          seenDividerIntervalHours: 0.25
+          drawerEnabled: true
         }
       });
     }
