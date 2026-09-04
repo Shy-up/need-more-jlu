@@ -1,0 +1,60 @@
+{
+  "manifest_version": 3,
+  "name": "need_more_jlu - 吉大校园网现代增强",
+  "version": "1.0.0",
+  "description": "自定义吉林大学校园网与OA通知界面：现代卡片流、深浅色及壁纸自定义、新旧已读追踪、学生专属分类、抽屉式秒开预览。",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "need_more_jlu 控制面板",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "options_ui": {
+    "page": "options/options.html",
+    "open_in_tab": true
+  },
+  "permissions": [
+    "storage",
+    "unlimitedStorage",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "*://oa.jlu.edu.cn/*",
+    "*://vpn.jlu.edu.cn/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "*://oa.jlu.edu.cn/defaultroot/PortalInformation!*",
+        "*://vpn.jlu.edu.cn/https/*/defaultroot/PortalInformation!*"
+      ],
+      "css": [
+        "content/theme.css",
+        "content/inject.css"
+      ],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "*://oa.jlu.edu.cn/defaultroot/PortalInformation!*",
+        "*://vpn.jlu.edu.cn/https/*/defaultroot/PortalInformation!*"
+      ],
+      "js": [
+        "content/drawer.js",
+        "content/inject.js"
+      ],
+      "run_at": "document_end"
+    }
+  ],
+  "background": {
+    "service_worker": "background/service_worker.js"
+  }
+}

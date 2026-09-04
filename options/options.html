@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>need_more_jlu - 高级自定义与偏好设置</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <div class="options-wrapper">
+    <div class="options-header">
+      <div class="logo-box">JLU</div>
+      <div>
+        <h1>need_more_jlu · 高级自定义中心</h1>
+        <p>自定义吉林大学校园网及 OA 平台的视觉风格、背景壁纸与过滤规则</p>
+      </div>
+    </div>
+
+    <div class="settings-card">
+      <h2>🖼️ 自定义背景与壁纸</h2>
+      <div class="form-group">
+        <label>主题模式</label>
+        <select id="theme-select" class="form-control">
+          <option value="light">☀️ 现代极简浅色 (默认)</option>
+          <option value="dark">🌙 暗夜极客深色 (OLED)</option>
+          <option value="sepia">📜 护眼羊皮纸 (Sepia)</option>
+          <option value="navy">🎓 经典吉大深蓝 (Navy)</option>
+          <option value="custom">🖼️ 自定义壁纸模式</option>
+        </select>
+      </div>
+
+      <div class="form-group" id="wallpaper-input-group">
+        <label>自定义壁纸来源</label>
+        <div class="wallpaper-source-tabs">
+          <label class="radio-label"><input type="radio" name="wallpaper-source" value="local" checked> 📁 选择本地图片文件</label>
+          <label class="radio-label"><input type="radio" name="wallpaper-source" value="url"> 🌐 网络图片 URL</label>
+        </div>
+
+        <!-- Local File Upload Dropzone -->
+        <div id="local-wallpaper-container" style="margin-top: 10px;">
+          <div class="upload-dropzone" id="upload-dropzone">
+            <div class="dropzone-content">
+              <span style="font-size: 28px;">📷</span>
+              <p style="margin: 6px 0 2px 0; font-size: 13.5px; font-weight: 500; color: #1e293b;">点击选择本地壁纸图片，或直接拖拽到此处</p>
+              <span class="help-text">支持 JPG、PNG、WEBP 高清本地壁纸（自动转存至浏览器本地）</span>
+            </div>
+            <input type="file" id="local-wallpaper-file" accept="image/*" style="display: none;" />
+          </div>
+        </div>
+
+        <!-- URL Input Container -->
+        <div id="url-wallpaper-container" style="display: none; margin-top: 10px;">
+          <input type="text" id="wallpaper-url" class="form-control" placeholder="https://example.com/wallpaper.jpg" />
+          <span class="help-text">支持输入任意网络图片链接（高清摄影、风景或动漫壁纸）。</span>
+        </div>
+
+        <!-- Wallpaper Preview & Remove -->
+        <div id="wallpaper-preview-box" style="display: none; margin-top: 14px;">
+          <div style="display: flex; align-items: center; gap: 14px; padding: 12px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
+            <img id="wallpaper-preview-img" src="" alt="壁纸预览" style="width: 130px; height: 74px; object-fit: cover; border-radius: 6px; border: 1px solid #cbd5e1;" />
+            <div>
+              <div style="font-size: 13px; color: #1e293b; font-weight: 600;">已就绪自定义壁纸</div>
+              <div style="font-size: 11.5px; color: #64748b; margin-top: 2px;" id="wallpaper-file-info">本地图片</div>
+              <button type="button" class="btn btn-secondary" id="btn-remove-wallpaper" style="padding: 4px 10px; font-size: 11.5px; margin-top: 8px; color: #ef4444; border-color: #fca5a5;">
+                🗑️ 移除当前壁纸
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>主强调色 (Accent Color)</label>
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <input type="color" id="accent-color" value="#0284c7" />
+          <span id="accent-hex">#0284c7</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-card">
+      <h2>🎯 智能过滤与学生视角</h2>
+      <div class="form-group">
+        <label class="checkbox-label">
+          <input type="checkbox" id="default-unread" />
+          <span>默认打开页面时仅显示未读通知</span>
+        </label>
+      </div>
+      <div class="form-group">
+        <label class="checkbox-label">
+          <input type="checkbox" id="drawer-preview-enabled" checked />
+          <span>启用右侧抽屉式（Drawer）秒开正文预览与附件下载</span>
+        </label>
+      </div>
+    </div>
+
+    <div class="settings-card">
+      <h2>💾 数据管理</h2>
+      <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+        <button class="btn btn-secondary" id="btn-clear-read">🗑️ 清空已读记录</button>
+        <button class="btn btn-secondary" id="btn-export-stars">📤 导出收藏通知</button>
+      </div>
+    </div>
+
+    <div style="text-align: right; margin-top: 24px;">
+      <span id="save-status" class="save-status">已保存更改</span>
+      <button class="btn btn-primary" id="btn-save">保存设置</button>
+    </div>
+  </div>
+
+  <script src="options.js"></script>
+</body>
+</html>
