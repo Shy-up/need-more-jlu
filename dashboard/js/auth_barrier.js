@@ -15,9 +15,20 @@ export function updateBadgeState(status, text) {
   textEl.textContent = text;
 }
 
-export function showLoadingPanel(show = true) {
+export function showLoadingPanel(show = true, mainText = null, subText = null) {
   const el = document.getElementById('realDataLoadingPanel');
   if (el) el.style.display = show ? 'flex' : 'none';
+
+  if (show) {
+    const mainEl = document.getElementById('realDataLoadingTextMain') || el?.querySelector('.loading-text-main');
+    const subEl = document.getElementById('realDataLoadingTextSub') || el?.querySelector('.loading-text-sub');
+    if (mainEl) {
+      mainEl.textContent = mainText || '正在直连吉大教务处 (cxkxjs.do) 获取实时空闲排课...';
+    }
+    if (subEl) {
+      subEl.textContent = subText || '官网接口可能变动，如果网络部有经费的话...';
+    }
+  }
 }
 
 export function hideLoadingPanel() {

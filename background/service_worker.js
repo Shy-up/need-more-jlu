@@ -1082,7 +1082,7 @@ async function handleFetchTimeline(payload = {}) {
   // 2. 会话预热
   await ensureJluSessionWarmup(probe.selectedChannel);
 
-  // 3. 并行拉取 12 个时段排课切片
+  // 3. 并行拉取 12 个时段排课切片（增加单个切片 catch 容错）
   const slotPromises = slots.map(slotNum => {
     return handleFetchClassrooms({
       ...payload,
@@ -1092,6 +1092,9 @@ async function handleFetchTimeline(payload = {}) {
     }).then(res => ({
       slot: slotNum,
       res
+    })).catch(err => ({
+      slot: slotNum,
+      res: { success: false, error: 'TIMEOUT', message: err?.message || '切片拉取超时' }
     }));
   });
 

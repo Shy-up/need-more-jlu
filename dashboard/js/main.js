@@ -70,6 +70,8 @@ const state = {
   campusCode: DEFAULT_CAMPUS_CODE,
   buildingId: DEFAULT_BUILDING_CODE,
   queryDate: getTodayString(),
+  loadedDate: null,
+  loadedCampusCode: null,
   activePreset: 'now', // 'now' | 'morning' | 'afternoon' | 'evening' | 'all' | 'custom'
   selectedSlots: [1],
   roomTypes: {
@@ -181,7 +183,8 @@ function selectCalendarDate(dateStr) {
 
   renderInlineCalendar();
   updateDateControls();
-  loadParallelTimelineData();
+
+  loadParallelTimelineData(true);
 }
 
 function bindCalendarEvents() {
@@ -324,6 +327,7 @@ function renderCabin() {
 }
 
 let isLoadingTimeline = false;
+let currentTimelineRequestId = 0;
 
 async function loadParallelTimelineData(force = false) {
   if (isLoadingTimeline && !force) {
@@ -331,14 +335,23 @@ async function loadParallelTimelineData(force = false) {
     return;
   }
   isLoadingTimeline = true;
+  const requestId = ++currentTimelineRequestId;
+
+  const isDateOrCampusChanged = (state.loadedDate !== state.queryDate) || (state.loadedCampusCode !== state.campusCode);
+  const shouldShowLoading = !state.isDataLoaded || isDateOrCampusChanged;
 
   state.fetchStatus = 'LOADING';
-  updateBadgeState('loading', state.isDataLoaded ? '正在同步排课数据...' : '正在获取排课数据...');
+  const loadingTitle = `正在获取 ${state.queryDate} 排课数据...`;
+  const badgeText = isDateOrCampusChanged
+    ? loadingTitle
+    : (state.isDataLoaded ? '正在同步排课数据...' : '正在获取排课数据...');
+  updateBadgeState('loading', badgeText);
 
-  // 关键防闪烁：仅当页面从未加载过数据时，才显示全屏 loading 面板；
-  // 若页面已有数据（静默刷新），保持内容区域可见，仅更新顶栏 Badge，杜绝页面剧烈跳动！
-  if (!state.isDataLoaded) {
-    showLoadingPanel(true);
+  // 关键体验优化：
+  // 当首次进入页面，或用户主动切换了日期/校区时，立即呈现加载页并隐藏旧数据，
+  // 杜绝“继续显示切换前数据”导致用户误以为界面卡顿或数据前后无变化！
+  if (shouldShowLoading) {
+    showLoadingPanel(true, loadingTitle, '正在向吉大教务系统申请该日期的空闲教室分布...');
     hideBarrierPanel();
     hideContentArea();
   }
@@ -353,15 +366,23 @@ async function loadParallelTimelineData(force = false) {
 
     const result = await fetchTimelineData(payload, currentCampus, currentBuildings);
 
+    // 竞态保护：若有更新的请求已被派发，废弃本次旧请求的返回结果
+    if (requestId !== currentTimelineRequestId) {
+      console.log(`[need_more_jlu] 请求 #${requestId} 已过期（最新 #${currentTimelineRequestId}），丢弃本次渲染`);
+      return;
+    }
+
     showLoadingPanel(false);
 
     // Hard-Fail Check
     if (!result || !result.success || !Array.isArray(result.slotsData)) {
       state.fetchStatus = result?.error || 'NETWORK_ERROR';
 
-      // 关键防闪烁：若此前已有数据且本次仅为网络暂时波动（如 TIMEOUT），保持现有数据显示并提示，避免白屏闪跳
-      if (state.isDataLoaded && (result?.error === 'TIMEOUT' || result?.error === 'NETWORK_ERROR')) {
+      // 关键防闪烁：仅当处于同一日期/校区静默刷新且仅为网络偶发波动时，才维持旧数据显示；
+      // 若是切换了日期或校区，决不能用旧数据冒充新查询结果！
+      if (!isDateOrCampusChanged && state.isDataLoaded && (result?.error === 'TIMEOUT' || result?.error === 'NETWORK_ERROR')) {
         updateBadgeState('disconnected', '网络较慢 · 显示当前数据 (点击重试)');
+        showContentArea();
         return;
       }
 
@@ -372,6 +393,8 @@ async function loadParallelTimelineData(force = false) {
 
     state.fetchStatus = 'SUCCESS';
     state.isDataLoaded = true;
+    state.loadedDate = state.queryDate;
+    state.loadedCampusCode = state.campusCode;
 
     // Process timeline slices
     const processed = mergeAndProcessTimeline(result.slotsData, currentBuildings);
@@ -381,9 +404,23 @@ async function loadParallelTimelineData(force = false) {
     showContentArea();
     renderMacro();
     renderCabin();
+  } catch (err) {
+    console.error('[need_more_jlu] loadParallelTimelineData 发生异常:', err);
+    if (requestId === currentTimelineRequestId) {
+      showLoadingPanel(false);
+      state.fetchStatus = 'NETWORK_ERROR';
+      state.isDataLoaded = false;
+      showHardFailBarrier({
+        success: false,
+        error: 'NETWORK_ERROR',
+        message: err?.message || '排课数据加载遇到异常，请检查网络后重试'
+      }, state, currentCampus, currentBuildings);
+    }
   } finally {
-    isLoadingTimeline = false;
-    showLoadingPanel(false);
+    if (requestId === currentTimelineRequestId) {
+      isLoadingTimeline = false;
+      showLoadingPanel(false);
+    }
   }
 }
 

@@ -435,11 +435,23 @@ export async function directFetchParallelTimeline(payload, currentCampus, curren
 export async function fetchTimelineData(payload, currentCampus, currentBuildings) {
   let result = null;
 
-  // 1. 优先通过 Background Service Worker 发送
+  // 1. 优先通过 Background Service Worker 发送（增加 5s 超时兜底，防止 SW 挂起导致无限卡 loading）
   if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
     try {
       result = await new Promise((resolve) => {
+        let hasResolved = false;
+        const timer = setTimeout(() => {
+          if (!hasResolved) {
+            hasResolved = true;
+            console.warn('[need_more_jlu] FETCH_TIMELINE 通信超时 (5s)');
+            resolve({ success: false, error: 'TIMEOUT', message: '连接教务排课服务超时 (5s)' });
+          }
+        }, 5000);
+
         chrome.runtime.sendMessage({ type: 'FETCH_TIMELINE', payload }, (res) => {
+          if (hasResolved) return;
+          hasResolved = true;
+          clearTimeout(timer);
           if (chrome.runtime.lastError) {
             resolve({ success: false, error: chrome.runtime.lastError.message });
           } else {
