@@ -78,46 +78,13 @@ async function syncCampusDirectNetRules() {
   isSyncingRules = true;
 
   try {
-    let cookieStr = '';
-    if (chrome.cookies && chrome.cookies.getAll) {
-      const [ieduCookies, rootCookies] = await Promise.all([
-        chrome.cookies.getAll({ domain: 'iedu.jlu.edu.cn' }).catch(() => []),
-        chrome.cookies.getAll({ domain: '.jlu.edu.cn' }).catch(() => [])
-      ]);
-
-      const cookieMap = new Map();
-      for (const c of [...rootCookies, ...ieduCookies]) {
-        cookieMap.set(c.name, c.value);
-        if (c.sameSite !== 'no_restriction' && c.name && (c.name.includes('SESSION') || c.name === '_WEU' || c.name === 'route' || c.name === 'THEME' || c.name === 'EMAP_LANG')) {
-          try {
-            chrome.cookies.set({
-              url: 'https://iedu.jlu.edu.cn',
-              name: c.name,
-              value: c.value,
-              domain: c.domain,
-              path: c.path || '/',
-              secure: true,
-              httpOnly: c.httpOnly,
-              sameSite: 'no_restriction'
-            }).catch(() => {});
-          } catch (e) {}
-        }
-      }
-
-      cookieStr = Array.from(cookieMap.entries())
-        .map(([k, v]) => `${k}=${v}`)
-        .join('; ');
-    }
-
     const ieduHeaders = [
       { header: 'Origin', operation: 'set', value: 'https://iedu.jlu.edu.cn' },
       { header: 'Referer', operation: 'set', value: 'https://iedu.jlu.edu.cn/jwapp/sys/kxjas/*default/index.do?THEME=purple&EMAP_LANG=en' },
       { header: 'X-Requested-With', operation: 'set', value: 'XMLHttpRequest' }
     ];
 
-    if (cookieStr) {
-      ieduHeaders.push({ header: 'Cookie', operation: 'set', value: cookieStr });
-    }
+    const excludedDomains = ['iedu.jlu.edu.cn', 'vpn.jlu.edu.cn', 'sso.jlu.edu.cn', 'cas.jlu.edu.cn', 'ehall.jlu.edu.cn'];
 
     await chrome.declarativeNetRequest.updateDynamicRules({
       removeRuleIds: [1001, 1002],
@@ -131,7 +98,8 @@ async function syncCampusDirectNetRules() {
           },
           condition: {
             urlFilter: '||iedu.jlu.edu.cn/jwapp/',
-            resourceTypes: ['xmlhttprequest', 'main_frame', 'sub_frame']
+            resourceTypes: ['xmlhttprequest'],
+            excludedInitiatorDomains: excludedDomains
           }
         },
         {
@@ -147,7 +115,8 @@ async function syncCampusDirectNetRules() {
           },
           condition: {
             urlFilter: '||vpn.jlu.edu.cn/',
-            resourceTypes: ['xmlhttprequest', 'main_frame', 'sub_frame']
+            resourceTypes: ['xmlhttprequest'],
+            excludedInitiatorDomains: excludedDomains
           }
         }
       ]
@@ -157,14 +126,6 @@ async function syncCampusDirectNetRules() {
   } finally {
     isSyncingRules = false;
   }
-}
-
-if (typeof chrome !== 'undefined' && chrome.cookies && chrome.cookies.onChanged) {
-  chrome.cookies.onChanged.addListener((changeInfo) => {
-    if (changeInfo.cookie && (changeInfo.cookie.domain.includes('jlu.edu.cn'))) {
-      syncCampusDirectNetRules();
-    }
-  });
 }
 
 syncCampusDirectNetRules();
@@ -215,7 +176,9 @@ async function queryViaIeduTabBridge(url, params) {
   if (typeof chrome === 'undefined' || !chrome.tabs) return null;
 
   try {
-    const tabs = await chrome.tabs.query({ url: '*://iedu.jlu.edu.cn/*' });
+    const tabs = await chrome.tabs.query({
+      url: ['*://iedu.jlu.edu.cn/*', '*://vpn.jlu.edu.cn/*jwapp*']
+    });
     if (!tabs || tabs.length === 0) return null;
 
     const targetTab = tabs.find(t => t.active) || tabs[0];
@@ -313,10 +276,7 @@ async function checkTimetableReachability(channelKey) {
     params.append('pageSize', '1');
     params.append('pageNumber', '1');
 
-    let resp = null;
-    if (channelKey === 'DIRECT') {
-      resp = await queryViaIeduTabBridge(endpoint.apiUrl, params.toString());
-    }
+    let resp = await queryViaIeduTabBridge(endpoint.apiUrl, params.toString());
 
     if (!resp) {
       resp = await fetchWithTimeout(endpoint.apiUrl, {
@@ -369,7 +329,6 @@ async function checkTimetableReachability(channelKey) {
       text.includes('Not login!') ||
       text.includes('401.png') ||
       text.includes('统一身份认证') ||
-      text.includes('login') ||
       text.includes('cas.jlu.edu.cn')
     ) {
       return {
@@ -687,10 +646,7 @@ async function handleFetchClassrooms(payload = {}) {
   try {
     await syncCampusDirectNetRules();
 
-    let resp = null;
-    if (channelKey === 'DIRECT') {
-      resp = await queryViaIeduTabBridge(endpoint.apiUrl, params.toString());
-    }
+    let resp = await queryViaIeduTabBridge(endpoint.apiUrl, params.toString());
 
     if (!resp) {
       resp = await fetchWithTimeout(endpoint.apiUrl, {

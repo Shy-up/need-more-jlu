@@ -70,8 +70,15 @@ export async function checkLoginAndAutoReload(onSuccess) {
   }
 
   chrome.runtime.sendMessage({ type: 'CHECK_AUTH_STATUS' }, async (res) => {
+    const statusText = document.getElementById('qrStatusText');
     if (res && res.isLoggedIn === true) {
       handleAuthSuccessNotification(onSuccess);
+    } else if (res && statusText) {
+      if (res.channel === 'WEBVPN') {
+        statusText.innerHTML = '<span class="qr-status-dot pulse"></span> 正在等待 WebVPN 教务系统会话确认... 登录后将自动同步';
+      } else if (res.message) {
+        statusText.innerHTML = `<span class="qr-status-dot pulse"></span> ${res.message}`;
+      }
     }
   });
 }
@@ -85,10 +92,12 @@ export function startEmbeddedQrLoginFlow(onSuccess) {
     statusText.innerHTML = '<span class="qr-status-dot pulse"></span> 正在准备官方认证通道...';
   }
 
-  const openPopup = (authUrl) => {
+  const openPopup = (authUrl, isVpn = false) => {
     const targetUrl = authUrl || 'https://iedu.jlu.edu.cn/jwapp/sys/kxjas/*default/index.do?THEME=purple&EMAP_LANG=en#/kxjscx';
     if (statusText) {
-      statusText.innerHTML = '<span class="qr-status-dot pulse"></span> 正在等待登录确认... 若弹出证书警告请点击【高级 ➔ 继续前往】放行';
+      statusText.innerHTML = isVpn
+        ? '<span class="qr-status-dot pulse"></span> 正在等待 WebVPN 统一身份认证... 登录后将自动同步'
+        : '<span class="qr-status-dot pulse"></span> 正在等待登录确认... 若弹出证书警告请点击【高级 ➔ 继续前往】放行';
     }
 
     const width = 760;
@@ -115,7 +124,8 @@ export function startEmbeddedQrLoginFlow(onSuccess) {
     chrome.runtime.sendMessage({ type: 'PREPARE_QR_LOGIN' }, () => {
       chrome.runtime.sendMessage({ type: 'GET_ACTIVE_CHANNEL' }, (chRes) => {
         const resolvedAuthUrl = chRes?.authUrl;
-        openPopup(resolvedAuthUrl);
+        const isVpn = (chRes?.channel === 'WEBVPN');
+        openPopup(resolvedAuthUrl, isVpn);
       });
     });
   } else {
@@ -160,7 +170,7 @@ export function showHardFailBarrier(errorResult, state = {}, currentCampus = nul
     if (titleEl) titleEl.textContent = errorResult?.channel === 'DIRECT' ? '校园网教务未登录认证' : '吉大教务未登录认证';
     if (subtitleEl) {
       subtitleEl.innerHTML = errorResult?.channel === 'DIRECT'
-        ? `校园网直连已连通，但课表数据库需要统一身份认证授权。<br>点击下方按钮完成认证，认证成功后<strong>本页面将刷新</strong>。<br><span style="display:inline-block; margin-top: 8px; font-size: 0.85em; opacity: 0.85;">💡 提示：若弹出窗口提示“您的连接不是私密连接 (ERR_CERT_AUTHORITY_INVALID)”，请点击<strong>【高级】➔【继续前往 iedu.jlu.edu.cn (不安全)】</strong>以信任校园网内网证书。</span>`
+        ? `校园网直连已连通，但课表数据库需要统一身份认证授权。<br>点击下方按钮完成认证，认证成功后<strong>本页面将刷新</strong>。<br><span style="display:inline-block; margin-top: 8px; font-size: 0.85em; opacity: 0.85;">💡 提示：若弹出窗口提示“您的连接不是私密连接”，请点击<strong>【高级】➔【继续前往 iedu.jlu.edu.cn (不安全)】</strong>以信任校园网内网证书。</span>`
         : `WebVPN 会话未登录或已过期。<br>点击下方按钮完成登录认证，认证成功后<strong>本页面将刷新</strong>。`;
     }
   } else if (isTimeout) {

@@ -21,8 +21,8 @@ document.addEventListener('DOMContentLoaded', () => {
   // 1. OA 地址（默认直连）
   let currentOaUrl = CHANNELS.DIRECT.oaUrl;
 
-  // 2. WebVPN 官方统一门户
-  const VPN_PORTAL_URL = 'https://vpn.jlu.edu.cn/';
+  // 2. WebVPN 官方统一门户（直接进入统一身份认证登录页）
+  const VPN_PORTAL_URL = CHANNELS.WEBVPN?.authUrl || 'https://vpn.jlu.edu.cn/login?cas_login=true';
 
   // 3. 教务微服务办事大厅（校园网直连 vs WebVPN 智能切换）
   const EMAP_DIRECT_URL = 'https://iedu.jlu.edu.cn/jwapp/sys/emaphome/portal/index.do';

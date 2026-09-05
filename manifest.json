@@ -39,7 +39,8 @@
   "content_scripts": [
     {
       "matches": [
-        "*://iedu.jlu.edu.cn/*"
+        "*://iedu.jlu.edu.cn/*",
+        "*://vpn.jlu.edu.cn/*jwapp*"
       ],
       "js": [
         "content/iedu_bridge.js"

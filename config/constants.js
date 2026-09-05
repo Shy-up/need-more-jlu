@@ -38,7 +38,8 @@ export const CHANNELS = {
     referer: `https://vpn.jlu.edu.cn${WEBVPN_HASH}/jwapp/sys/kxjas/*default/index.do?THEME=purple&EMAP_LANG=en`,
     origin: 'https://vpn.jlu.edu.cn',
     oaUrl: `https://vpn.jlu.edu.cn${OA_WEBVPN_HASH}/defaultroot/PortalInformation!jldxList.action?channelId=179577`,
-    authUrl: 'https://vpn.jlu.edu.cn/login?cas_login=true'
+    portalUrl: `https://vpn.jlu.edu.cn${WEBVPN_HASH}/jwapp/sys/kxjas/*default/index.do?THEME=purple&EMAP_LANG=en#/kxjscx`,
+    authUrl: `https://vpn.jlu.edu.cn${WEBVPN_HASH}/jwapp/sys/kxjas/*default/index.do?THEME=purple&EMAP_LANG=en#/kxjscx`
   }
 };
 
