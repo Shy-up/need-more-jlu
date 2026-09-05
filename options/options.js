@@ -49,10 +49,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         showAutoSaveFeedback();
 
-        // Broadcast to all open JLU tabs to apply immediately
-        chrome.tabs.query({}, (tabs) => {
+        // Broadcast to open JLU tabs to apply immediately
+        chrome.tabs.query({ url: ['*://*.jlu.edu.cn/*'] }, (tabs) => {
           tabs.forEach(tab => {
-            if (tab.id && tab.url && tab.url.includes('jlu.edu.cn')) {
+            if (tab.id) {
               chrome.tabs.sendMessage(tab.id, {
                 action: 'update_settings',
                 settings: settings
@@ -101,9 +101,9 @@ document.addEventListener('DOMContentLoaded', () => {
             showAutoSaveFeedback('阅读历史与统计已清空');
 
             // Broadcast to OA tabs to update floating pill & panel
-            chrome.tabs.query({}, (tabs) => {
+            chrome.tabs.query({ url: ['*://*.jlu.edu.cn/*'] }, (tabs) => {
               tabs.forEach(tab => {
-                if (tab.id && tab.url && tab.url.includes('jlu.edu.cn')) {
+                if (tab.id) {
                   chrome.tabs.sendMessage(tab.id, {
                     action: 'clear_history'
                   }, () => {

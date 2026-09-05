@@ -6,6 +6,15 @@
 import { getRoomFilterStatus } from './timeline_engine.js';
 import { getBuildingRecommendation } from './data_service.js';
 
+function escapeHtml(str) {
+  return (str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 export function syncBuildingCardSelectedState(selectedBuildingId) {
   document.querySelectorAll('.bldg-card').forEach(c => {
     if (c.dataset.bldgId === selectedBuildingId) {
@@ -44,7 +53,7 @@ export function createBuildingCardElement({
       <span class="bldg-name">${bldg.shortName}</span>
       ${rec ? `<span class="bldg-rec-tag">推荐</span>` : ''}
     </div>
-    ${rec && rec.reason ? `<div class="bldg-rec-reason" title="${rec.reason}">💡 ${rec.reason}</div>` : ''}
+    ${rec && rec.reason ? `<div class="bldg-rec-reason" title="${escapeHtml(rec.reason)}">💡 ${escapeHtml(rec.reason)}</div>` : ''}
     <div class="bldg-stats-row">
       <div class="bldg-free-count">${freeCount} <small>/ ${validRooms.length} 间可用</small></div>
       <div class="bldg-percentage-ring">${percentage}%</div>

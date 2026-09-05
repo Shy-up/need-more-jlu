@@ -65,7 +65,11 @@ export function saveSettings(partial) {
     });
   }
   if (partial.customWallpaper !== undefined) {
-    localStorage.setItem('nmj_custom_wallpaper', partial.customWallpaper);
+    try {
+      localStorage.setItem('nmj_custom_wallpaper', partial.customWallpaper);
+    } catch (e) {
+      console.warn('[need_more_jlu] 提示：壁纸体积较大，已存储于 storage.local，跳过 localStorage 同步');
+    }
   }
   if (partial.theme !== undefined) {
     localStorage.setItem('nmj_theme', partial.theme);
@@ -277,7 +281,7 @@ export function initWallpaperModal(state) {
       const rawDataUrl = evt.target.result;
       const img = new Image();
       img.onload = function () {
-        const maxDim = 2560;
+        const maxDim = 1920;
         let width = img.width;
         let height = img.height;
         if (width > maxDim || height > maxDim) {
@@ -288,17 +292,16 @@ export function initWallpaperModal(state) {
             width = Math.round((width * maxDim) / height);
             height = maxDim;
           }
-          const canvas = document.createElement('canvas');
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0, width, height);
-          pendingWallpaperData = canvas.toDataURL('image/jpeg', 0.88);
-        } else {
-          pendingWallpaperData = rawDataUrl;
         }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        // 统一通过 Canvas 压缩为 1080P 高清 JPEG（体积约 200KB~500KB，完全无需 unlimitedStorage 权限）
+        pendingWallpaperData = canvas.toDataURL('image/jpeg', 0.82);
         const kb = Math.round(pendingWallpaperData.length * 0.75 / 1024);
-        showPreview(pendingWallpaperData, `本地图片 (${file.name}, 约 ${kb}KB)`);
+        showPreview(pendingWallpaperData, `本地图片 (${file.name}, 已优化至约 ${kb}KB)`);
       };
       img.src = rawDataUrl;
     };

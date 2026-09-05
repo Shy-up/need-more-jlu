@@ -24,20 +24,15 @@
   },
   "permissions": [
     "storage",
-    "unlimitedStorage",
-    "activeTab",
     "cookies",
     "declarativeNetRequest",
     "scripting",
     "tabs"
   ],
   "host_permissions": [
-    "*://oa.jlu.edu.cn/*",
-    "*://vpn.jlu.edu.cn/*",
-    "*://iedu.jlu.edu.cn/*",
     "*://*.jlu.edu.cn/*",
-    "https://raw.githubusercontent.com/*",
-    "https://cdn.jsdelivr.net/*"
+    "https://raw.githubusercontent.com/Shy-up/need-more-jlu/*",
+    "https://cdn.jsdelivr.net/gh/Shy-up/need-more-jlu*/*"
   ],
   "content_scripts": [
     {
@@ -68,14 +63,11 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "dashboard/*",
-        "icons/*",
-        "data/*",
-        "assets/*",
-        "config/*"
+        "assets/*"
       ],
       "matches": [
-        "<all_urls>"
+        "*://oa.jlu.edu.cn/*",
+        "*://vpn.jlu.edu.cn/*"
       ]
     }
   ],
