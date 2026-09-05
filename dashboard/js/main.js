@@ -60,6 +60,8 @@ import {
   saveSettings
 } from './wallpaper_theme.js';
 
+import { initDevToolsEasterEgg } from './easter_egg.js';
+
 // ============================================================================
 // 1. 全局核心状态
 // ============================================================================
@@ -703,6 +705,7 @@ async function init() {
   startClock();
   updateDateControls();
   initWallpaperAndTheme(state);
+  initDevToolsEasterEgg();
 
   // Trigger parallel full fetch
   loadParallelTimelineData();

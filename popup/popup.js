@@ -5,8 +5,10 @@
 
 import { CAMPUS_NAMES, CHANNELS, DEFAULT_CAMPUS_CODE, WEBVPN_HASH } from '../config/constants.js';
 import { CAMPUS_PORTALS } from './sites_data.js';
+import { initDevToolsEasterEgg } from '../dashboard/js/easter_egg.js';
 
 document.addEventListener('DOMContentLoaded', () => {
+  initDevToolsEasterEgg();
   const btnOpenDashboard = document.getElementById('btn-open-dashboard');
   const btnOpenOA = document.getElementById('btn-open-oa');
   const btnOpenVPN = document.getElementById('btn-open-vpn');
