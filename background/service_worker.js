@@ -476,8 +476,9 @@ let trackedAuthWinId = null;
 
 if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.onUpdated) {
   chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-    // 严格隔离：仅当此标签页是由插件明确拉起的认证弹窗时才执行中转，对用户单开的其他 WebVPN 页面绝对零干扰
-    if (!trackedAuthTabId || tabId !== trackedAuthTabId) return;
+    // 严格隔离：仅当此标签页是专属认证弹窗 (tabId 匹配或 windowId 匹配) 时才执行中转，绝不干预普通标签页
+    const isTracked = (trackedAuthTabId && tabId === trackedAuthTabId) || (trackedAuthWinId && tab?.windowId === trackedAuthWinId);
+    if (!isTracked) return;
 
     const url = changeInfo.url || tab?.url;
     if (!url) return;
@@ -486,11 +487,10 @@ if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.onUpdated) {
       const u = new URL(url);
       if (u.hostname === 'vpn.jlu.edu.cn') {
         // 判定是否进入了 WebVPN 控制台首页（排除登录页和已进入的教务/OA应用页）
-        const isNotLogin = !u.pathname.includes('/login') && !u.search.includes('cas_login');
-        const isNotApp = !u.pathname.includes('/jwapp/') && !u.pathname.includes('/defaultroot/');
-        const isPortalPath = (u.pathname === '/' || u.pathname === '/index.html' || u.pathname.startsWith('/portal'));
+        const isLogin = u.pathname.includes('/login') || u.search.includes('cas_login');
+        const isAlreadyApp = u.pathname.includes('/jwapp/') || u.pathname.includes('/defaultroot/');
 
-        if (isNotLogin && isNotApp && isPortalPath) {
+        if (!isLogin && !isAlreadyApp) {
           console.log('[need_more_jlu] 定向捕获认证弹窗进入 WebVPN 首页，自动中转至教务系统:', tabId);
           const targetEmapUrl = `https://vpn.jlu.edu.cn${WEBVPN_HASH}/jwapp/sys/kxjas/*default/index.do?THEME=purple&EMAP_LANG=en#/kxjscx`;
           chrome.tabs.update(tabId, { url: targetEmapUrl });
@@ -500,10 +500,18 @@ if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.onUpdated) {
   });
 }
 
-// 监听标签页关闭，及时销毁跟踪
+// 监听标签页或窗口关闭，及时销毁跟踪
 if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.onRemoved) {
   chrome.tabs.onRemoved.addListener((tabId) => {
     if (tabId === trackedAuthTabId) {
+      trackedAuthTabId = null;
+      trackedAuthWinId = null;
+    }
+  });
+}
+if (typeof chrome !== 'undefined' && chrome.windows && chrome.windows.onRemoved) {
+  chrome.windows.onRemoved.addListener((winId) => {
+    if (winId === trackedAuthWinId) {
       trackedAuthTabId = null;
       trackedAuthWinId = null;
     }
@@ -533,10 +541,18 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         left,
         top,
         focused: true
-      }, (win) => {
-        if (win && win.tabs && win.tabs.length > 0) {
-          trackedAuthTabId = win.tabs[0].id;
+      }, async (win) => {
+        if (win) {
           trackedAuthWinId = win.id;
+          let tabId = (win.tabs && win.tabs.length > 0) ? win.tabs[0].id : null;
+          if (!tabId && chrome.tabs && chrome.tabs.query) {
+            try {
+              const tabs = await chrome.tabs.query({ windowId: win.id });
+              if (tabs && tabs.length > 0) tabId = tabs[0].id;
+            } catch (e) {}
+          }
+          trackedAuthTabId = tabId;
+          console.log('[need_more_jlu] 认证窗口启动就绪: winId =', trackedAuthWinId, ', tabId =', trackedAuthTabId);
           sendResponse({ success: true, tabId: trackedAuthTabId, winId: trackedAuthWinId });
         } else {
           sendResponse({ success: false });

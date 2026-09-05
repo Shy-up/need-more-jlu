@@ -40,7 +40,7 @@
     {
       "matches": [
         "*://iedu.jlu.edu.cn/*",
-        "*://vpn.jlu.edu.cn/*jwapp*"
+        "*://vpn.jlu.edu.cn/*"
       ],
       "js": [
         "content/iedu_bridge.js"

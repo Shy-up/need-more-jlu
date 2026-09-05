@@ -5,6 +5,21 @@
  */
 
 (() => {
+  // 1. 认证弹窗专属自动中转（绝不误伤用户单开的普通窗口）：
+  // 仅当当前窗口由插件作为认证弹窗拉起 (window.name === 'JLU_AUTH_WINDOW')，且登录后停留在 WebVPN 首页时自动中转
+  if (window.name === 'JLU_AUTH_WINDOW') {
+    const href = window.location.href;
+    const isWebvpnHost = window.location.hostname.includes('vpn.jlu.edu.cn');
+    const isLogin = href.includes('/login') || href.includes('cas_login');
+    const isAlreadyApp = href.includes('/jwapp/') || href.includes('/defaultroot/');
+    if (isWebvpnHost && !isLogin && !isAlreadyApp) {
+      console.log('[need_more_jlu] 认证弹窗捕获到 WebVPN 控制台首页，同源桥接器自动中转至教务系统...');
+      const WEBVPN_HASH = '/https/48714f71342f7a336d582f7e2857373756c9770f46c0c2b0ff87560d5a42f1';
+      window.location.replace(`https://vpn.jlu.edu.cn${WEBVPN_HASH}/jwapp/sys/kxjas/*default/index.do?THEME=purple&EMAP_LANG=en#/kxjscx`);
+      return;
+    }
+  }
+
   if (window.__NMJ_IEDU_BRIDGE_INSTALLED__) return;
   window.__NMJ_IEDU_BRIDGE_INSTALLED__ = true;
 
