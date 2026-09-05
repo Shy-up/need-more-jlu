@@ -1,6 +1,10 @@
-# need_more_jlu - 吉大工具箱-空闲教室速查|OA增强
+# need_more_jlu - 吉大工具箱：空闲教室速查 | OA增强
 
-更适合学生体质的吉大官网增强 Chrome 扩展程序
+> 更适合吉大学生体质的吉大官网增强 Chrome 扩展程序（Manifest V3 原生架构）
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Manifest V3](https://img.shields.io/badge/Manifest-V3-success.svg)](https://developer.chrome.com/docs/extensions/mv3/intro/)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/Shy-up/need-more-jlu/pulls)
 
 ---
 
@@ -9,139 +13,190 @@
 学校官网老旧的好处：
 
 1. 没人会看
-
 2. 接口万年不变，方便自定义插件/爬虫
-
 3. 有千禧年怀旧感
-
 4. 没人关心你会对官网干什么
-
-5. 没有现代元素的情况下加载仍然慢于现代UI 
-
-
-
-## 🌟 核心功能矩阵
-
-### 1. 现代空教室查询
-彻底告别传统教务系统繁琐表单与盲人摸象式查空教室，实现空间直觉与安全感选座：
-![alt text](image.png)
-- **微观楼层选座热力图**：按真实建筑结构以楼层（1F、2F...）矩阵展示教室舱位，实时呈现全空（🟢）、中途有课（🟡）、满课（🔴）与封闭机房（⚪）；
-- **全天 1~12 节走势卡片**：鼠标轻抚教室即时浮现迷你全天课表时间轴与建议停留时长；
-- **场景时段预设**：支持“此时此刻立刻有座”、“上午自习 (1~4节)”、“下午自习 (5~8节)”、“今晚自习 (9~12节)”及 1~12 节多选点阵；
-- **全校六大校区 128 栋楼全覆盖**：官方完整收录前卫（40栋）、南岭（26栋）、新民（18栋）、朝阳（12栋）、南湖（12栋）、和平（20栋）全部教学楼与实验中心，支持按校区即时切换与记忆；
-- **校内直连 + WebVPN 双通道**：校内连接校园网（JLU.PC / JLU.WLAN）可直连教务，校外自动适配 WebVPN 加密网关（`vpn-12-o2-iedu.jlu.edu.cn`）。
-
-### 2. 轻量可靠：官方 OA 渐进增强工具箱 (`/content`)
-
-- **原网页保真侧边抽屉**：点击公文标题从右侧滑出阅读抽屉，支持 Esc 键秒退与左边缘拖拽调整宽度；
-- **最近一周公文查阅历史与阅读统计**：右下角实时统计累计阅读报告总数，点击展开最近 7 天浏览轨迹，支持一键重温与自动过期清理。
+5. 没有现代元素的情况下加载仍然慢于现代 UI
 
 ---
 
-## 🛠️ 安装与使用
+## 🌟 效果展示与核心功能
 
-1. 打开 Chrome 浏览器，访问 `chrome://extensions/`；
-2. 开启右上角 **「开发者模式」**；
-3. 点击 **「加载已解压的扩展程序」**，选中本项目根目录 `need_more_jlu`；
-4. 点击扩展图标即可进入控制面板，一键直达自习仪表盘或吉大 OA。
+### 1. 现代空教室速查仪表盘 (`/dashboard`)
+彻底告别教务系统古早复杂的表单，实现微观空间直觉与自习安全感选座。
 
----
+![自习仪表盘交互演示](readme_assets/classroom.gif)
 
-## 🏛️ 校区与教学楼数据配置
+![自习仪表盘全景图](readme_assets/classroom.png)
 
-本项目所有校区与教学楼数据已彻底解耦为**独立单文件存储**，已完整接入吉林大学教务系统最新全量数据：
-
-* 配置文件路径：[`data/campuses.json`](file:///b:/workspace/01_active/need_more_jlu/data/campuses.json)
-* 数据覆盖：
-  * **01 前卫校区**：40 栋楼（李四光楼、敬信楼、萃文楼、正新楼、王湘浩楼、计算机新楼、唐敖庆楼等）
-  * **02 南岭校区**：26 栋楼（逸夫楼、第一教学楼、第二教学楼、第三教学楼、第五教学楼、机械材料馆等）
-  * **03 新民校区**：18 栋楼（第一教学楼、第二教学楼、基础教学楼、公卫楼、白求恩临床各院科研科教楼等）
-  * **04 朝阳校区**：12 栋楼（地质宫、水工楼、实验楼、鸽子楼、黄大年楼等）
-  * **05 南湖校区**：12 栋楼（第一教学楼、第二教学楼、第三教学楼、基础教学楼、预科教育学院等）
-  * **06 和平校区**：20 栋楼（基础楼、管理楼、食品楼、植物科学楼、智能农业实训中心等）
+* **微观楼层座舱图**：楼层（1F、2F...）矩阵展示真实教室舱位，实时标记全空（🟢）、中途有课（🟡）、满课（🔴）与封闭机房（⚪）。
+* **悬浮全天切片**：鼠标悬浮即时显示 1~12 节课表时间轴与建议停留时长。
+* **场景一键切换**：“此时此刻立刻有座”、“上午自习 (1~4节)”、“下午自习 (5~8节)”、“今晚自习 (9~12节)”及任意节次多选。
+* **全校六大校区 128 栋楼覆盖**：完整收录前卫、南岭、新民、朝阳、南湖、和平全部教学楼与实验中心。
+* **校园网直连 / WebVPN 双通道**：校内网络秒开直连，校外自动接入 WebVPN 加密通道。
 
 ---
 
-## 💡 自习推荐教学楼与体验评价（社区共建）
+### 2. 官方 OA 极简增强 (`/content`)
+告别公文列表频繁打开新标签页与迷路，原网页无损嵌入。
 
-自习仪表盘首页仅优先突出展示**学长学姐精选推荐**的优质教学楼，其余楼栋默认收纳于“展开查看全部教学楼”中。
+![官方 OA 侧边抽屉与阅读历史](readme_assets/oa.gif)
 
-* 推荐配置文件：[`data/recommendations.json`](file:///b:/workspace/01_active/need_more_jlu/data/recommendations.json)
-* 欢迎前往 GitHub 仓库提交 PR：[https://github.com/Shy-up/need-more-jlu](https://github.com/Shy-up/need-more-jlu)
-* 贡献方式非常简单，只需在 `recommendations` 数组中添加或修改对应校区、楼栋代码与推荐理由即可：
+* **原网页保真侧边抽屉**：点击公文标题从右侧滑出阅读抽屉，100% 还原官方排版与印章；支持 `Esc` 键秒退与左边缘自由拖拽宽度。
+* **阅读历史轨迹**：右下角悬浮药丸实时记录查阅总数，展开直达近 7 天浏览轨迹，支持自动过期清理。
 
-```json
-{
-  "campusCode": "02",
-  "buildingCode": "65",
-  "buildingName": "南岭-逸夫楼",
-  "reason": "教室非常多"
-}
+---
+
+### 3. 快捷控制面板与常用站点导航 (`/popup`)
+浏览器右上角常驻入口，聚合高频校园办事入口。
+
+![控制面板与常用站点导航](readme_assets/popup.png)
+
+* **高频卡片直达**：自习仪表盘、官方 OA、WebVPN 统一门户、教务办事大厅、校图书馆一键直通。
+* **校内站点展开目录**：折叠面板收录 22+ 个吉大常用平台（选课、邮箱、网络缴费、正版软件、DeepSeek 等），支持关键词实时模糊搜索。
+
+---
+
+## 🛠️ 安装与使用（新手教程）
+
+如果你从未使用过 GitHub 或 Chrome 插件，请按以下 4 步操作：
+
+1. **下载项目**：点击本页面右上角绿色的 **`Code`** 按钮，选择 **`Download ZIP`**，下载后解压到本地电脑任意文件夹（例如解压到桌面）。
+2. **打开扩展管理页**：在 Chrome / Edge 浏览器地址栏输入：
+   ```text
+   chrome://extensions/
+   ```
+3. **开启开发者模式**：打开右上角 **「开发者模式」** 开关。
+4. **加载插件**：点击左上角 **「加载已解压的扩展程序」**，选中解压出的 `need_more_jlu` 文件夹即可。
+5. **固定图标**：点击浏览器右上角的拼图图标（扩展程序），找到 `need_more_jlu` 并点击图钉固定在工具栏。
+
+---
+
+## 🤝 参与贡献 (Contribution)
+
+你可以通过提交推荐自习楼栋、校正教室数据、反馈使用体验等方式帮助全校同学。
+
+推荐使用AI/个人Agent，提供提示词例如:
+```plaintext
+
+根据仓库地址：https://github.com/Shy-up/need-more-jlu
+
+带我一起 [规范增加我的自习教学楼推荐:xxx/(你的需求)]
+
+完成后带我/帮我提交PR
+```
+
+
+### 方式一：新手极简网页端提交（无需安装 Git，直接在浏览器修改）
+
+最推荐贡献的内容：**完善各校区教学楼的自习推荐与体验评价**！
+
+1. 打开配置文件页面：[`data/recommendations.json`](https://github.com/Shy-up/need-more-jlu/blob/main/data/recommendations.json)；
+2. 点击文件右上角的 **铅笔小图标（Edit this file）**；
+3. 在 `recommendations` 数组中，参考已有格式添加或修改你想推荐的楼栋及评价：
+   ```json
+   {
+     "campusCode": "02",
+     "buildingCode": "65",
+     "buildingName": "南岭-逸夫楼",
+     "reason": "教室非常多"
+   }
+   ```
+   > 💡 楼栋代码可在 [`data/campuses.json`](data/campuses.json) 中查阅对应校区的 `buildingCode`。
+4. 滑到页面最下方，选择 **`Create a new branch for this commit and start a pull request`**；
+5. 点击绿色的 **`Propose changes`**，再点击 **`Create pull request`** 发起提交，管理员审核后即可并入主干！
+
+---
+
+### 方式二：开发者本地代码贡献流程
+
+如果你熟悉前端开发（原生 HTML/CSS/ESM）：
+
+1. **Fork** 本仓库到你的个人账号；
+2. 克隆到本地开发环境：
+   ```bash
+   git clone https://github.com/<你的GitHub用户名>/need-more-jlu.git
+   cd need-more-jlu
+   ```
+3. 创建新的功能分支：
+   ```bash
+   git checkout -b feat/add-some-feature
+   ```
+4. 本地启动无依赖极简测试服务器（可选）：
+   ```bash
+   node scripts/serve.js
+   ```
+   在浏览器加载本地扩展并进行调试测试；
+5. 提交修改并推送到你的远程分支：
+   ```bash
+   git add .
+   git commit -m "feat: 你的改动说明"
+   git push origin feat/add-some-feature
+   ```
+6. 回到 GitHub 仓库页面，点击 **`Compare & pull request`** 提交 PR 并简要说明修改内容。
+
+---
+
+## 🐛 反馈与提问 (Issue 指南)
+
+如果你在使用中遇到了 Bug、闪退、数据拉取失败，或者有新功能想法，欢迎提出 Issue。
+
+### 如何提交一个高效的 Issue？
+
+1. 点击仓库顶部的 [**Issues 标签页**](https://github.com/Shy-up/need-more-jlu/issues)，点击右上角绿色 **`New issue`** 按钮；
+2. **标题简明扼要**，例如：`[Bug] 南岭校区逸夫楼在校园网下无法加载数据`；
+3. **内容请尽量包含以下关键信息**（直接复制填空即可）：
+
+```markdown
+- **所在校区**：南岭 / 前卫 / 新民 / 朝阳 / 南湖 / 和平
+- **网络环境**：校园网直连 (JLU.PC / JLU.WLAN) / WebVPN / 外部宽带
+- **浏览器类型与版本**：Chrome 120+ / Edge / 其他
+- **问题描述**：点击查询后提示什么，或者出现了什么不符合预期的情况
+- **截图（非常重要）**：
+  - 界面出错截图
+  - 按键盘 `F12` 打开控制台（Console），若有红字报错请截图一并附上
 ```
 
 ---
 
-## 📂 项目结构
+## 🧪 真实环境可用性测试进度
 
-```
+欢迎各校区同学实测并提交反馈勾选：
+
+- [x] 校外 WebVPN 访问（长春 - 移动）
+- [x] 南岭校区实测
+- [ ] 前卫校区实测
+- [ ] 新民校区实测
+- [ ] 朝阳校区实测
+- [ ] 南湖校区实测
+- [ ] 和平校区实测
+
+---
+
+## 📂 项目目录架构
+
+```text
 need_more_jlu/
-├── manifest.json              # Chrome Manifest V3 扩展清单（配置模块化 Worker 与资源路径）
+├── manifest.json              # Chrome Manifest V3 清单
+├── LICENSE                    # MIT 开源授权文件
 ├── config/
-│   └── constants.js           # 全局网络超时、WebVPN Hash 路由与 1~12 节作息时刻表常量
-├── assets/
-│   └── sleepy.gif             # 吉大自习与状态专属动图资源
-├── scripts/
-│   ├── serve.js               # 本地零依赖极简 HTTP 开发测试服务器
-│   └── generate_icons.ps1     # 扩展图标批量生成脚本
+│   └── constants.js           # 网络超时、WebVPN Hash 路由与作息表
 ├── data/
-│   ├── campuses.json          # 全校校区与教学楼官方基础数据（全量 128 栋）
-│   └── recommendations.json   # 各校区自习推荐楼栋与独家体验评价配置（社区贡献入口）
-├── dashboard/                 # 新一代吉大自习直达仪表盘（纯原生 ESM 架构）
-│   ├── index.html             # 仪表盘骨架
-│   ├── dashboard.css          # 模块化样式聚合入口 (@import)
-│   ├── dashboard.js           # 兼容 ESM 入口转发
-│   ├── css/
-│   │   ├── base.css           # 全局变量、主题与重置样式
-│   │   ├── controls.css       # 顶栏时钟感知、日历选择器与节次矩阵
-│   │   ├── macro.css          # 宏观楼栋卡片与推荐指南
-│   │   ├── cabin_map.css      # 微观楼层座舱图（阶梯尺寸与状态）
-│   │   ├── tooltip.css        # 教室悬浮详情卡与时段微型时间轴
-│   │   ├── barrier_modals.css # 真实数据阻断屏障、二维码登录与壁纸设置
-│   │   └── empty_state.css    # 差异化空状态（超时/无权限/筛选过滤/全满）
-│   └── js/
-│       ├── main.js            # 主控制器编排与全局事件流
-│       ├── timeline_engine.js # 1~12 节全天排课切片重构、时钟感知与连坐指数
-│       ├── data_service.js    # 双通道探测与教务真实数据拉取服务
-│       ├── render_macro.js    # 教学楼宏观总览渲染
-│       ├── render_cabin.js    # 微观座舱图渲染
-│       ├── tooltip.js         # 悬浮提示卡控制器
-│       ├── auth_barrier.js    # 真实数据屏障与扫码登录生命周期
-│       └── wallpaper_theme.js # 深浅主题与毛玻璃壁纸系统
-├── content/
-│   ├── inject.js              # OA 页面点击增强、阅读历史统计与浮层
-│   ├── drawer.js              # 原网页保真侧边滑出抽屉与附件解析
-│   └── inject.css             # 抽屉与阅读历史浮层样式
-├── background/
-│   └── service_worker.js      # 教务系统异步数据代理与双通道探测（ESM 模块）
-├── popup/
-│   ├── popup.html             # 浏览器右上角快捷入口
-│   ├── popup.css
-│   └── popup.js
-├── options/
-│   ├── options.html           # 扩展配置与缓存管理页
-│   └── options.js
-└── README.md
+│   ├── campuses.json          # 全校 6 大校区 128 栋楼数据
+│   └── recommendations.json   # 推荐楼栋与体验评价（欢迎贡献）
+├── dashboard/                 # 自习空教室直达仪表盘（纯原生 ESM）
+│   ├── index.html
+│   ├── dashboard.css
+│   ├── css/                   # 模块化样式（座舱图、悬浮卡、壁纸）
+│   └── js/                    # 切片重构引擎、双通道拉取与渲染控制器
+├── content/                   # 官方 OA 页面保真抽屉与历史统计
+├── background/                # 双通道探活与跨域数据代理 Worker
+├── popup/                     # 右上角控制面板与常用站点导航
+└── readme_assets/             # README 演示动图与高清截图
 ```
 
+---
 
-## 等待测试部分
+## 📄 开源协议
 
-1. 真实用户可用性:
-
-[x] 校外VPN(长春-移动)
-[x] 南岭
-[] 前卫
-[] 新民
-[] 朝阳
-[] 南湖
-[] 和平
+本项目采用 **[MIT License](LICENSE)** 协议开源。任何人均可自由使用、学习、修改与分发，欢迎在遵守协议的前提下进行二次创作与改进。
