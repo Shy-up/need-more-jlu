@@ -17,15 +17,25 @@
   function tryAutoRedirectToEmap() {
     if (hasRedirected) return;
 
-    const hostname = window.location.hostname;
-    if (!hostname.includes('vpn.jlu.edu.cn')) return;
-
     const href = window.location.href;
-    // 如果已经位于教务或 OA 系统内，终止监听
+    // 如果已经成功位于教务或 OA 系统内（选课/排课位置），说明认证全流程已圆满完成！
     if (href.includes('/jwapp/') || href.includes('/defaultroot/')) {
       cleanupWatcher();
+      console.log('[need_more_jlu] 认证弹窗已成功抵达教务系统（选课/排课位置），通知后台并自动关闭弹窗...');
+      if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+        chrome.runtime.sendMessage({
+          type: 'AUTH_SUCCESS_CLOSE_WINDOW',
+          url: href
+        }).catch(() => {});
+      }
+      setTimeout(() => {
+        try { window.close(); } catch (e) {}
+      }, 500);
       return;
     }
+
+    const hostname = window.location.hostname;
+    if (!hostname.includes('vpn.jlu.edu.cn')) return;
 
     const pathname = window.location.pathname.toLowerCase();
 

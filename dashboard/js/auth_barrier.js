@@ -87,7 +87,20 @@ export async function checkLoginAndAutoReload(onSuccess) {
   });
 }
 
+let currentOnSuccessCallback = null;
+
+// 监听认证弹窗抵达目标位置后的后台广播，无需等待轮询间隔，实现毫秒级自动响应与窗口关闭
+if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
+  chrome.runtime.onMessage.addListener((msg) => {
+    if (msg && msg.type === 'AUTH_COMPLETED_NOTIFY') {
+      console.log('[need_more_jlu] 仪表盘捕获到认证完成通知，自动唤醒呈现真实数据');
+      handleAuthSuccessNotification(currentOnSuccessCallback);
+    }
+  });
+}
+
 export function startEmbeddedQrLoginFlow(onSuccess) {
+  currentOnSuccessCallback = onSuccess;
   const statusText = document.getElementById('qrStatusText');
   const qrContainer = document.getElementById('barrierQrContainer');
 

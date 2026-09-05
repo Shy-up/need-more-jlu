@@ -618,13 +618,31 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
   }
 
-  if (request.type === 'CLOSE_AUTH_WINDOW') {
+  if (request.type === 'AUTH_SUCCESS_CLOSE_WINDOW' || request.type === 'CLOSE_AUTH_WINDOW') {
+    cachedProbeState = null;
+    lastProbeTime = 0;
+
     getTrackedAuthWindow().then((stored) => {
-      if (stored && stored.winId && chrome.windows) {
-        chrome.windows.remove(stored.winId).catch(() => {});
+      if (stored) {
+        if (stored.winId && chrome.windows) {
+          chrome.windows.remove(stored.winId).catch(() => {});
+        }
+        if (stored.tabId && chrome.tabs) {
+          chrome.tabs.remove(stored.tabId).catch(() => {});
+        }
       }
       clearTrackedAuthWindow();
     });
+
+    // 广播通知前端仪表盘认证全流程已完成，立即刷新呈现课室舱位
+    try {
+      chrome.runtime.sendMessage({
+        type: 'AUTH_COMPLETED_NOTIFY',
+        success: true,
+        url: request.url
+      }).catch(() => {});
+    } catch (e) {}
+
     sendResponse({ success: true });
     return true;
   }
