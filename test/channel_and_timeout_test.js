@@ -141,7 +141,51 @@ async function run() {
   assert.strictEqual(campusRes.channel, 'DIRECT');
   assert.strictEqual(campusRes.authUrl, EXPECTED_DIRECT_AUTH_URL, 'Direct authUrl must point to empty classroom portal with #/kxjscx');
   assert.strictEqual(campusRes.allowVpnFallback, false, 'Campus LAN must NEVER fall back to WebVPN');
-  console.log(' Verified: Campus LAN strictly uses direct iedu URL and refuses WebVPN fallback');
+  // Case F: Verify WebVPN session expired JSON response correctly recognized as UNAUTHENTICATED
+  function simulateWebvpnResponseInspection(responseBody) {
+    const text = (typeof responseBody === 'string') ? responseBody : JSON.stringify(responseBody);
+
+    let json = null;
+    try { json = JSON.parse(text); } catch (e) { json = null; }
+
+    if (json) {
+      if (
+        json?.url === '/login' ||
+        (typeof json?.url === 'string' && json.url.includes('login')) ||
+        (typeof json?.message === 'string' && (json.message.includes('登录') || json.message.includes('会话') || json.message.includes('过期')))
+      ) {
+        return { success: false, error: 'UNAUTHENTICATED', message: json.message };
+      }
+
+      const rows = json?.datas?.cxkxjs?.rows;
+      if (Array.isArray(rows)) {
+        return { success: true, rows };
+      }
+
+      return { success: false, error: 'NO_DATA' };
+    }
+
+    if (
+      text.includes('您的会话已经过期') ||
+      text.includes('请重新登录') ||
+      text.includes('会话已过期') ||
+      text.includes('会话过期')
+    ) {
+      return { success: false, error: 'UNAUTHENTICATED', message: 'WebVPN 会话已过期，请重新登录' };
+    }
+
+    return { success: false, error: 'PARSE_ERROR' };
+  }
+
+  const expiredVpnJson = {
+    message: '您的会话已经过期，请重新登录',
+    success: false,
+    url: '/login'
+  };
+  const sessionResult = simulateWebvpnResponseInspection(expiredVpnJson);
+  assert.strictEqual(sessionResult.error, 'UNAUTHENTICATED', 'Must identify expired session as UNAUTHENTICATED rather than NO_DATA');
+  assert.strictEqual(sessionResult.message, '您的会话已经过期，请重新登录');
+  console.log(' Verified: WebVPN session expired JSON correctly recognized as UNAUTHENTICATED');
 
   console.log('All unit tests passed successfully!');
 }

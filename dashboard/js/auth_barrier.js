@@ -148,12 +148,15 @@ export function showHardFailBarrier(errorResult, state = {}, currentCampus = nul
   const diagTextEl = document.getElementById('barrierDiagnosticsText');
   const iconEl = barrierEl.querySelector('.barrier-icon-large');
 
-  const isUnauth = (errorResult?.error === 'UNAUTHENTICATED' || (errorResult?.channel === 'DIRECT' && !isDualFail));
+  const isDualFail = (errorResult?.error === 'DUAL_CHANNELS_UNREACHABLE');
+  const isUnauth = (
+    errorResult?.error === 'UNAUTHENTICATED' || 
+    (errorResult?.channel === 'DIRECT' && !isDualFail) ||
+    (typeof errorResult?.message === 'string' && (errorResult.message.includes('登录') || errorResult.message.includes('会话') || errorResult.message.includes('过期')))
+  );
   const isTimeout = (errorResult?.error === 'TIMEOUT');
   const qrBtn = document.getElementById('btnToggleEmbeddedQr');
   const retryBtn = document.getElementById('btnRetryRealFetch');
-
-  const isDualFail = (errorResult?.error === 'DUAL_CHANNELS_UNREACHABLE');
 
   if (qrBtn) {
     qrBtn.style.display = isUnauth ? 'inline-flex' : 'none';

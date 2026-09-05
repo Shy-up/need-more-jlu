@@ -321,51 +321,74 @@ async function checkTimetableReachability(channelKey) {
       };
     }
 
-    // 3. 检查响应内容是否为登录页面 HTML
     const text = await resp.text();
+
+    // 3. 优先解析 JSON 并验证是否包含会话过期信息或合法 rows 结构
+    let json = null;
+    try {
+      json = JSON.parse(text);
+    } catch (e) {
+      json = null;
+    }
+
+    if (json) {
+      // 关键：识别 JSON 格式的未登录/会话过期响应（WebVPN 网关返回 { message: "您的会话已经过期，请重新登录", success: false, url: "/login" } 等）
+      if (
+        json?.url === '/login' ||
+        (typeof json?.url === 'string' && json.url.includes('login')) ||
+        (typeof json?.message === 'string' && (json.message.includes('登录') || json.message.includes('会话') || json.message.includes('过期') || json.message.includes('未登录')))
+      ) {
+        return {
+          reachable: true,
+          authenticated: false,
+          error: 'UNAUTHENTICATED',
+          message: json.message || (channelKey === 'DIRECT' ? '校园网已连通，但课表数据库未登录，请完成统一身份认证' : 'WebVPN 会话已过期，请重新登录')
+        };
+      }
+
+      const rows = json?.datas?.cxkxjs?.rows;
+      if (Array.isArray(rows)) {
+        return {
+          reachable: true,
+          authenticated: true,
+          totalSize: json?.datas?.cxkxjs?.totalSize || rows.length
+        };
+      }
+
+      return {
+        reachable: true,
+        authenticated: false,
+        error: channelKey === 'DIRECT' ? 'UNAUTHENTICATED' : 'NO_DATA',
+        message: channelKey === 'DIRECT' ? '校园网已连通，但课表数据库未登录，请完成统一身份认证' : '课表数据库未返回有效数据结构'
+      };
+    }
+
+    // 4. 检查响应内容是否为登录页面 HTML 或会话失效文本
     if (
       text.includes('<!DOCTYPE') ||
       text.includes('<html') ||
       text.includes('Not login!') ||
       text.includes('401.png') ||
       text.includes('统一身份认证') ||
-      text.includes('cas.jlu.edu.cn')
+      text.includes('cas.jlu.edu.cn') ||
+      text.includes('您的会话已经过期') ||
+      text.includes('请重新登录') ||
+      text.includes('会话已过期') ||
+      text.includes('会话过期')
     ) {
       return {
         reachable: true,
         authenticated: false,
         error: 'UNAUTHENTICATED',
-        message: channelKey === 'DIRECT' ? '校园网已连通，但课表数据库未登录，请完成统一身份认证' : 'WebVPN 会话未登录，请先登录 WebVPN'
-      };
-    }
-
-    // 4. 解析 JSON 并验证是否包含合法 rows 结构
-    let json;
-    try {
-      json = JSON.parse(text);
-    } catch (e) {
-      return {
-        reachable: channelKey === 'DIRECT',
-        authenticated: false,
-        error: channelKey === 'DIRECT' ? 'UNAUTHENTICATED' : 'PARSE_ERROR',
-        message: channelKey === 'DIRECT' ? '校园网已连通，但课表数据库未登录，请完成统一身份认证' : '课表数据库返回非标准响应'
-      };
-    }
-
-    const rows = json?.datas?.cxkxjs?.rows;
-    if (Array.isArray(rows)) {
-      return {
-        reachable: true,
-        authenticated: true,
-        totalSize: json?.datas?.cxkxjs?.totalSize || rows.length
+        message: channelKey === 'DIRECT' ? '校园网已连通，但课表数据库未登录，请完成统一身份认证' : 'WebVPN 会话已过期，请重新登录'
       };
     }
 
     return {
-      reachable: true,
+      reachable: channelKey === 'DIRECT',
       authenticated: false,
-      error: channelKey === 'DIRECT' ? 'UNAUTHENTICATED' : 'NO_DATA',
-      message: channelKey === 'DIRECT' ? '校园网已连通，但课表数据库未登录，请完成统一身份认证' : '课表数据库未返回有效数据结构'
+      error: channelKey === 'DIRECT' ? 'UNAUTHENTICATED' : 'PARSE_ERROR',
+      message: channelKey === 'DIRECT' ? '校园网已连通，但课表数据库未登录，请完成统一身份认证' : '课表数据库返回非标准响应'
     };
   } catch (err) {
     const isTimeout = (err.code === 'TIMEOUT' || err.name === 'TimeoutError');
@@ -695,6 +718,57 @@ async function handleFetchClassrooms(payload = {}) {
     }
 
     const text = await resp.text();
+
+    let json = null;
+    try {
+      json = JSON.parse(text);
+    } catch (e) {
+      json = null;
+    }
+
+    // 关键拦截：WebVPN 或微服务网关返回 JSON 格式的会话过期提示 (如 { message: "您的会话已经过期，请重新登录", success: false, url: "/login" })
+    if (json) {
+      if (
+        json?.url === '/login' ||
+        (typeof json?.url === 'string' && json.url.includes('login')) ||
+        (typeof json?.message === 'string' && (json.message.includes('登录') || json.message.includes('会话') || json.message.includes('过期') || json.message.includes('未登录')))
+      ) {
+        return {
+          success: false,
+          error: 'UNAUTHENTICATED',
+          channel: channelKey,
+          message: json.message || (channelKey === 'DIRECT'
+            ? '校园网直连正常，但教务会话已过期，请完成统一身份认证'
+            : 'WebVPN 会话已过期，请重新登录 WebVPN')
+        };
+      }
+
+      const rows = json?.datas?.cxkxjs?.rows;
+      if (!Array.isArray(rows)) {
+        return {
+          success: false,
+          error: 'NO_DATA',
+          channel: channelKey,
+          message: '教务系统未返回有效的 rows 列表',
+          raw: json
+        };
+      }
+
+      return {
+        success: true,
+        channel: channelKey,
+        totalSize: json?.datas?.cxkxjs?.totalSize || rows.length,
+        rows: rows,
+        queryMeta: {
+          campusCode,
+          buildingCode: finalBuildingCode,
+          date: queryDate,
+          startSection,
+          endSection
+        }
+      };
+    }
+
     // 检查是否被拦截或重定向到登录页
     if (
       text.includes('<!DOCTYPE') || 
@@ -702,7 +776,10 @@ async function handleFetchClassrooms(payload = {}) {
       text.includes('Not login!') || 
       text.includes('401.png') || 
       text.includes('统一身份认证') || 
-      text.includes('login')
+      text.includes('您的会话已经过期') ||
+      text.includes('请重新登录') ||
+      text.includes('会话已过期') ||
+      text.includes('会话过期')
     ) {
       // 关键拦截：校园网环境下直连连通但未登录，坚决返回 UNAUTHENTICATED，绝不回退至不可达的 WebVPN！
       return {
@@ -711,33 +788,17 @@ async function handleFetchClassrooms(payload = {}) {
         channel: channelKey,
         message: channelKey === 'DIRECT'
           ? '校园网直连正常，但教务会话未登录或已过期，请完成统一身份认证'
-          : 'WebVPN 会话未激活或已过期，请先登录 WebVPN'
+          : 'WebVPN 会话已过期，请重新登录 WebVPN'
       };
     }
 
-    let json;
-    try {
-      json = JSON.parse(text);
-    } catch (e) {
-      return {
-        success: false,
-        error: 'PARSE_ERROR',
-        channel: channelKey,
-        message: '教务系统返回非标准 JSON 响应',
-        raw: text.slice(0, 300)
-      };
-    }
-
-    const rows = json?.datas?.cxkxjs?.rows;
-    if (!Array.isArray(rows)) {
-      return {
-        success: false,
-        error: 'NO_DATA',
-        channel: channelKey,
-        message: '教务系统未返回有效的 rows 列表',
-        raw: json
-      };
-    }
+    return {
+      success: false,
+      error: 'PARSE_ERROR',
+      channel: channelKey,
+      message: '教务系统返回非标准 JSON 响应',
+      raw: text.slice(0, 300)
+    };
 
     return {
       success: true,
