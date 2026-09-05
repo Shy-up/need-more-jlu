@@ -532,24 +532,7 @@ if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.onUpdated) {
       }).catch(() => {});
     }
 
-    const url = changeInfo.url || tab?.url;
-    if (!url) return;
 
-    try {
-      const u = new URL(url);
-      if (u.hostname === 'vpn.jlu.edu.cn') {
-        const pathname = u.pathname.toLowerCase();
-        // 精确判定：排除精确登录页面（千万不能用 cas_login 排除，因为登录完成后 CAS 回跳依然带有 cas_login 参数）
-        const isExactLogin = (pathname === '/login' || pathname.startsWith('/login/') || pathname.startsWith('/tpass'));
-        const isAlreadyApp = pathname.includes('/jwapp/') || pathname.includes('/defaultroot/');
-
-        if (!isExactLogin && !isAlreadyApp) {
-          console.log('[need_more_jlu] 定向捕获认证弹窗进入 WebVPN 控制台首页，后台自动中转至教务系统:', tabId);
-          const targetEmapUrl = `https://vpn.jlu.edu.cn${WEBVPN_HASH}/jwapp/sys/kxjas/*default/index.do?THEME=purple&EMAP_LANG=en#/kxjscx`;
-          chrome.tabs.update(tabId, { url: targetEmapUrl });
-        }
-      }
-    } catch (e) {}
   });
 }
 
@@ -656,6 +639,16 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       );
       sendResponse({ isAuthWindow: Boolean(isAuth) });
     });
+    return true;
+  }
+
+  if (request.type === 'CONFIRM_WEBVPN_LOGIN') {
+    const senderTabId = sender?.tab?.id;
+    if (senderTabId && chrome.tabs) {
+      const targetEmapUrl = `https://vpn.jlu.edu.cn${WEBVPN_HASH}/jwapp/sys/kxjas/*default/index.do?THEME=purple&EMAP_LANG=en#/kxjscx`;
+      chrome.tabs.update(senderTabId, { url: targetEmapUrl });
+    }
+    sendResponse({ success: true });
     return true;
   }
 

@@ -28,35 +28,60 @@
     }
 
     const pathname = window.location.pathname.toLowerCase();
-    // 严格检查是否仍停留在精确的登录页或 CAS 认证页
-    const isExactLoginPage = (pathname === '/login' || pathname === '/login/' || pathname.startsWith('/tpass'));
 
-    // DOM 特征检测：判断是否已进入 WebVPN 门户首页或已渲染出应用入口
-    const bodyText = document.body ? (document.body.innerText || '') : '';
-    const hasPortalIndicators = (
-      bodyText.includes('教务管理系统') ||
-      bodyText.includes('(新)教务管理系统') ||
-      bodyText.includes('退出登录') ||
-      bodyText.includes('注销') ||
-      bodyText.includes('安全退出') ||
-      document.querySelector('a[href*="jwapp"]') !== null ||
-      document.querySelector('a[href*="48714f71342f7a336d582f7e2857373756c9770f46c0c2b0ff87560d5a42f1"]') !== null ||
-      document.querySelector('.user-info, .logout, #logout, .portal-header, .portal-content, .resource-item, .app-item') !== null
+    // 1. 严格检查是否处于未登录状态，或正在展示微信扫码/登录表单：
+    // 只要页面上有二维码、登录表单、用户名密码输入框、或登录提示文本，坚决不得跳转！
+    const hasQr = (
+      document.querySelector('canvas, .qrcode, #qrcode, .qr-box, .wechat-qrcode, [class*="qrcode"], [id*="qrcode"], [class*="qr_code"], [id*="qr_code"], img[src*="qr"], img[src*="QR"], img[src*="qrcode"]') !== null
     );
 
-    // 检查页面是否仍存在密码输入框
-    const hasPasswordInput = document.querySelector('input[type="password"]') !== null;
+    const hasLoginForm = (
+      document.querySelector('input[type="password"], input[name="username"], input[name="password"], input[id*="username"], input[id*="password"], #login-form, .login-box, .login-card, #casLoginForm') !== null
+    );
 
-    // 判定是否已经完成登录进入门户：
-    // 条件 1: 出现教务入口或门户特征元素
-    // 条件 2: 不在精确登录页面路径，且没有密码输入框，且 body 已经有渲染内容
-    const isNowInPortal = hasPortalIndicators || (!isExactLoginPage && !hasPasswordInput && document.body && document.body.children.length > 0);
+    const bodyText = document.body ? (document.body.innerText || '') : '';
+    const hasLoginText = (
+      bodyText.includes('扫码登录') ||
+      bodyText.includes('微信登录') ||
+      bodyText.includes('账号密码登录') ||
+      bodyText.includes('请使用微信扫描') ||
+      bodyText.includes('打开手机微信扫一扫') ||
+      bodyText.includes('刷新二维码') ||
+      bodyText.includes('统一身份认证')
+    );
 
-    if (isNowInPortal) {
+    // 只要出现上述任一登录/扫码特征，说明用户正在进行登录，坚决阻断跳转！
+    if (hasQr || hasLoginForm || hasLoginText) {
+      return;
+    }
+
+    // 2. 正向严格检查：必须出现已登录 WebVPN 门户控制台的专属特征元素
+    // 例如：应用列表中的“(新)教务管理系统”链接、用户注销/退出按钮
+    const hasJwappLink = (
+      document.querySelector('a[href*="jwapp"]') !== null ||
+      document.querySelector('a[href*="48714f71342f7a336d582f7e2857373756c9770f46c0c2b0ff87560d5a42f1"]') !== null ||
+      bodyText.includes('(新)教务管理系统') ||
+      bodyText.includes('教务管理系统')
+    );
+
+    const hasLogoutAction = (
+      bodyText.includes('退出登录') ||
+      bodyText.includes('安全退出') ||
+      bodyText.includes('注销') ||
+      document.querySelector('.logout, #logout, [href*="logout"]') !== null
+    );
+
+    // 只有当明确出现教务入口或退出按钮，且没有任何登录框/二维码时，才确认已登录！
+    if (hasJwappLink || hasLogoutAction) {
       hasRedirected = true;
       cleanupWatcher();
       console.log('[need_more_jlu] 认证弹窗捕获到 WebVPN 控制台首页，同源桥接器立即自动跳转至教务系统...');
       window.location.replace(TARGET_EMAP_URL);
+      try {
+        if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+          chrome.runtime.sendMessage({ type: 'CONFIRM_WEBVPN_LOGIN' }).catch(() => {});
+        }
+      } catch (e) {}
     }
   }
 
