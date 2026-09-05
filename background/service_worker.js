@@ -468,6 +468,39 @@ async function probeChannels(forceRefresh = false) {
   return cachedProbeState;
 }
 
+let lastAuthRequestTime = 0;
+
+// ============================================================================
+// 监听认证标签页跳转：当用户完成 WebVPN 登录停留在控制台首页时，自动无缝重定向到教务系统
+// ============================================================================
+if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.onUpdated) {
+  chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+    const url = changeInfo.url || tab?.url;
+    if (!url) return;
+
+    // 若在近期（10分钟内）发起过认证流程
+    const isRecentAuth = (Date.now() - lastAuthRequestTime < 10 * 60 * 1000);
+    if (!isRecentAuth) return;
+
+    try {
+      const u = new URL(url);
+      if (u.hostname === 'vpn.jlu.edu.cn') {
+        // 判定是否进入了 WebVPN 控制台首页（排除登录页和已进入的教务/OA应用页）
+        const isNotLogin = !u.pathname.includes('/login') && !u.search.includes('cas_login');
+        const isNotApp = !u.pathname.includes('/jwapp/') && !u.pathname.includes('/defaultroot/');
+        const isPortalPath = (u.pathname === '/' || u.pathname === '/index.html' || u.pathname.startsWith('/portal'));
+
+        if (isNotLogin && isNotApp && isPortalPath) {
+          console.log('[need_more_jlu] 捕获到 WebVPN 登录成功停留在控制台首页，自动中转至教务系统:', tabId, url);
+          lastAuthRequestTime = 0; // 重置，防止反复重定向
+          const targetEmapUrl = `https://vpn.jlu.edu.cn${WEBVPN_HASH}/jwapp/sys/kxjas/*default/index.do?THEME=purple&EMAP_LANG=en#/kxjscx`;
+          chrome.tabs.update(tabId, { url: targetEmapUrl });
+        }
+      }
+    } catch (e) {}
+  });
+}
+
 // ============================================================================
 // 3. 运行时消息分发
 // ============================================================================
@@ -482,6 +515,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 
   if (request.type === 'PREPARE_QR_LOGIN') {
+    lastAuthRequestTime = Date.now();
     (async () => {
       try {
         const cookieConfigs = [

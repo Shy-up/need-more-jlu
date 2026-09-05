@@ -75,7 +75,7 @@ export async function checkLoginAndAutoReload(onSuccess) {
       handleAuthSuccessNotification(onSuccess);
     } else if (res && statusText) {
       if (res.channel === 'WEBVPN') {
-        statusText.innerHTML = '<span class="qr-status-dot pulse"></span> 正在等待 WebVPN 教务系统会话确认... 登录后将自动同步';
+        statusText.innerHTML = '<span class="qr-status-dot pulse"></span> 正在等待 WebVPN 教务系统会话确认... 登录后将自动跳转同步<br><span style="font-size: 0.85em; opacity: 0.8; display: inline-block; margin-top: 4px;">💡 若停留在控制台首页，也可在页面中直接点击【(新)教务管理系统】</span>';
       } else if (res.message) {
         statusText.innerHTML = `<span class="qr-status-dot pulse"></span> ${res.message}`;
       }
@@ -96,7 +96,7 @@ export function startEmbeddedQrLoginFlow(onSuccess) {
     const targetUrl = authUrl || 'https://iedu.jlu.edu.cn/jwapp/sys/kxjas/*default/index.do?THEME=purple&EMAP_LANG=en#/kxjscx';
     if (statusText) {
       statusText.innerHTML = isVpn
-        ? '<span class="qr-status-dot pulse"></span> 正在等待 WebVPN 统一身份认证... 登录后将自动同步'
+        ? '<span class="qr-status-dot pulse"></span> 正在等待 WebVPN 统一身份认证... 登录后将自动跳转教务系统并同步<br><span style="font-size: 0.85em; opacity: 0.8; display: inline-block; margin-top: 4px;">💡 若停留在控制台首页，也可在页面中直接点击【(新)教务管理系统】</span>'
         : '<span class="qr-status-dot pulse"></span> 正在等待登录确认... 若弹出证书警告请点击【高级 ➔ 继续前往】放行';
     }
 
