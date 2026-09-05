@@ -95,8 +95,9 @@ a.nmj-notice-read:hover * {
 }
 
 #nmj-drawer-overlay.active {
-  opacity: 1;
-  visibility: visible;
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: block !important;
 }
 
 #nmj-drawer {
@@ -118,7 +119,10 @@ a.nmj-notice-read:hover * {
 }
 
 #nmj-drawer.active {
-  transform: translateX(0);
+  transform: translateX(0) !important;
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
 }
 
 /* Draggable Resizer Handle on Left Edge */

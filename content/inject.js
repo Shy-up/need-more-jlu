@@ -233,6 +233,7 @@
     console.log('[need_more_jlu] 启动官方 OA 渐进增强工具箱与阅读历史统计...');
     enhanceNoticeRows();
     injectDiscreetStatusIndicator();
+    startTableObserver();
     getCleanHistory((data) => {
       markReadNotices(data);
     });
@@ -240,6 +241,11 @@
 
   function teardown() {
     isEnhanced = false;
+
+    if (oaTableObserver) {
+      oaTableObserver.disconnect();
+      oaTableObserver = null;
+    }
 
     // Remove drawer root and close drawer if open
     if (window.NMJDrawer && window.NMJDrawer.close) {
@@ -265,9 +271,61 @@
     });
   }
 
+  /**
+   * 智能地址映射解析器：
+   * 无论链接是直接绝对路径、相对路径、还是 javascript:getInformation(id) / onclick 函数调用，
+   * 均精准提取出公文真实 ID，并在校园网直连或 WebVPN 环境下分别规范化映射为 100% 可用的详情页地址。
+   */
+  function resolveNoticeUrl(link) {
+    const href = link.getAttribute('href') || link.href || '';
+    const onclick = link.getAttribute('onclick') || '';
+    const combined = href + ' ' + onclick;
+
+    // 1. 尝试从 URL 或参数中提取 ID
+    let id = null;
+    const idMatch = combined.match(/[?&]id=([0-9a-zA-Z_-]+)/i);
+    if (idMatch) {
+      id = idMatch[1];
+    } else {
+      // 匹配各种函数调用: getInformation('123'), openInfo('123'), view('123')
+      const fnMatch = combined.match(/(?:getInformation|openInfo|view|readNotice|showInfo)\s*\(\s*['"]?([0-9a-zA-Z_-]+)['"]?/i);
+      if (fnMatch) {
+        id = fnMatch[1];
+      }
+    }
+
+    const isWebvpn = window.location.hostname.includes('vpn.jlu.edu.cn');
+    const vpnPrefixMatch = window.location.pathname.match(/^(\/https\/[0-9a-fA-F]+)/);
+    const vpnPrefix = (isWebvpn && vpnPrefixMatch) ? vpnPrefixMatch[1] : '';
+
+    // 2. 根据提取出的公文 ID 构造标准绝对地址
+    if (id) {
+      if (isWebvpn) {
+        return {
+          id,
+          url: `https://vpn.jlu.edu.cn${vpnPrefix}/defaultroot/PortalInformation!getInformation.action?id=${id}`
+        };
+      } else {
+        // 校园网直连：使用当前域名前缀
+        const origin = window.location.origin;
+        return {
+          id,
+          url: `${origin}/defaultroot/PortalInformation!getInformation.action?id=${id}`
+        };
+      }
+    }
+
+    // 3. 保底：若链接为普通 http/https 链接
+    if (link.href && !link.href.startsWith('javascript:')) {
+      return { id: link.href, url: link.href };
+    }
+
+    return { id: href, url: href };
+  }
+
   // 1. 增强官方表格行点击：记录阅读历史 + 抽屉秒开
   function enhanceNoticeRows() {
-    const noticeLinks = document.querySelectorAll('a[href*="getInformation.action"]');
+    const noticeLinks = document.querySelectorAll('a[href*="getInformation"], a[href*="PortalInformation!getInformation"], a[href*="portalInformation!getInformation"], a[onclick*="getInformation"], a[onclick*="openInfo"]');
 
     noticeLinks.forEach(link => {
       link.classList.add('nmj-enhanced-link');
@@ -277,15 +335,17 @@
         link.addEventListener('click', function (e) {
           const rawText = link.innerText || '';
           const cleanTitle = rawText.replace(/^已读\s*/, '').trim() || '通知详情';
-          const url = link.href;
-          const match = url.match(/id=([0-9a-zA-Z_-]+)/);
-          const id = match ? match[1] : url;
+          const noticeInfo = resolveNoticeUrl(link);
+          const finalUrl = noticeInfo.url;
+          const finalId = noticeInfo.id || finalUrl;
+
+          console.log('[need_more_jlu] 点击公文:', { title: cleanTitle, id: finalId, url: finalUrl });
 
           // 即刻在界面中将此公文明显标灰并加上[已读]徽章
           markElementAsRead(link);
 
           // 自动记录公文阅读历史与统计
-          recordNoticeVisit({ id, title: cleanTitle, url });
+          recordNoticeVisit({ id: finalId, title: cleanTitle, url: finalUrl });
 
           // If master switch or drawer is disabled, do nothing (native browser link click)
           if (!currentSettings.oaToolsEnabled || !currentSettings.drawerEnabled) {
@@ -298,14 +358,31 @@
           }
 
           e.preventDefault();
+          e.stopPropagation();
 
-          if (window.NMJDrawer) {
-            window.NMJDrawer.open({ url, title });
+          if (window.NMJDrawer && window.NMJDrawer.open) {
+            window.NMJDrawer.open({ url: finalUrl, title: cleanTitle });
           } else {
-            window.open(url, '_blank');
+            window.open(finalUrl, '_blank');
           }
         });
       }
+    });
+  }
+
+  // 动态监听公文表格翻页与异步刷新
+  let oaTableObserver = null;
+  function startTableObserver() {
+    if (oaTableObserver) return;
+    oaTableObserver = new MutationObserver(() => {
+      enhanceNoticeRows();
+      getCleanHistory((data) => {
+        markReadNotices(data);
+      });
+    });
+    oaTableObserver.observe(document.body, {
+      childList: true,
+      subtree: true
     });
   }
 

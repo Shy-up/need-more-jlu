@@ -4,7 +4,7 @@
  * 架构核心：并发全拉 1~12 节切片，端侧重构全天排课时间轴，严格隐藏全天有课/无数据教室。
  */
 
-(function() {
+(function () {
   'use strict';
 
   // Standard JLU Class Session Definitions (1~12 slots, official accurate schedule)
@@ -712,10 +712,10 @@
         return;
       }
       const reader = new FileReader();
-      reader.onload = function(evt) {
+      reader.onload = function (evt) {
         const rawDataUrl = evt.target.result;
         const img = new Image();
-        img.onload = function() {
+        img.onload = function () {
           const maxDim = 2560;
           let width = img.width;
           let height = img.height;
@@ -944,7 +944,7 @@
 
     // Hard-Fail Check
     if (!result || !result.success || !Array.isArray(result.slotsData)) {
-      state.fetchStatus = result?.error === 'UNAUTHENTICATED' ? 'UNAUTHENTICATED' : 'NETWORK_ERROR';
+      state.fetchStatus = result?.error || 'NETWORK_ERROR';
       state.isDataLoaded = false;
       showHardFailBarrier(result);
       return;
@@ -960,7 +960,34 @@
   async function directFetchParallelTimeline(payload) {
     const slots = payload.slots || [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
     const webvpnHash = '/https/48714f71342f7a336d582f7e2857373756c9770f46c0c2b0ff87560d5a42f1';
-    const url = `https://vpn.jlu.edu.cn${webvpnHash}/jwapp/sys/kxjas/modules/kxjscx/cxkxjs.do?vpn-12-o2-iedu.jlu.edu.cn`;
+
+    // 1. 并行探测直连 OA 和 WebVPN 可达性
+    let oaOk = false;
+    let vpnOk = false;
+    try {
+      const probeOa = fetch('https://oa.jlu.edu.cn/defaultroot/PortalInformation!jldxList.action?channelId=179577', { method: 'GET', signal: AbortSignal.timeout(4000) }).then(r => r.status > 0).catch(() => false);
+      const probeVpn = fetch('https://vpn.jlu.edu.cn/', { method: 'GET', signal: AbortSignal.timeout(4000) }).then(r => r.status > 0).catch(() => false);
+      const [resOa, resVpn] = await Promise.all([probeOa, probeVpn]);
+      oaOk = resOa;
+      vpnOk = resVpn;
+    } catch (e) { }
+
+    if (!oaOk && !vpnOk) {
+      return {
+        success: false,
+        error: 'DUAL_CHANNELS_UNREACHABLE',
+        message: '吉大校园网 (oa.jlu) 与校外 WebVPN (vpn.jlu) 均不可达，请检查本地网络连接'
+      };
+    }
+
+    const candidateEndpoints = [];
+    // 校园网可达坚决优先走直连
+    if (oaOk) {
+      candidateEndpoints.push({ name: '校园网直连', url: 'https://iedu.jlu.edu.cn/jwapp/sys/kxjas/modules/kxjscx/cxkxjs.do', key: 'DIRECT' });
+    }
+    if (vpnOk) {
+      candidateEndpoints.push({ name: 'WebVPN 网关', url: `https://vpn.jlu.edu.cn${webvpnHash}/jwapp/sys/kxjas/modules/kxjscx/cxkxjs.do?vpn-12-o2-iedu.jlu.edu.cn`, key: 'WEBVPN' });
+    }
 
     const campusCode = payload.campusCode || state.campusCode || '02';
     const buildingCode = payload.buildingCode || currentBuildings.map(b => b.code).join(',') || '65,82,73';
@@ -968,77 +995,112 @@
     const buildingNames = currentBuildings.length > 0 ? currentBuildings.map(b => b.name).join(',') : '逸夫楼,第二教学楼,第一教学楼';
     const roomTypes = '03,02,01,04,05,06,13,08,09,10,11,12,07';
 
-    try {
-      const promises = slots.map(async (slotNum) => {
-        const querySetting = [
-          { name: "XXXQDM", caption: "学校校区", linkOpt: "AND", builderList: "cbl_m_List", builder: "m_value_equal", value: campusCode, value_display: campusName },
-          { name: "JXLDM", caption: "教学楼", linkOpt: "AND", builderList: "cbl_m_List", builder: "m_value_equal", value: buildingCode, value_display: buildingNames },
-          { name: "JASLXDM", caption: "教室类型", linkOpt: "AND", builderList: "cbl_m_List", builder: "m_value_equal", value: roomTypes, value_display: "公用资源,体育馆,多媒体,制图教室,多功能设计教室,体育场,运动场,操场,普通,画室,计算机房,语音室,实验室" },
-          { name: "KXRQ", caption: "空闲日期", linkOpt: "AND", builderList: "cbl_Other", builder: "equal", value: payload.date },
-          { name: "KXJC", caption: "空闲节次", builder: "lessEqual", linkOpt: "AND", builderList: "cbl_Other", value: String(slotNum) },
-          { name: "KXJC", caption: "空闲节次", linkOpt: "AND", builderList: "cbl_String", builder: "moreEqual", value: String(slotNum) },
-          { name: "XXXQDM", value: campusCode, linkOpt: "AND", builder: "m_value_equal" },
-          { name: "JXLDM", value: buildingCode, linkOpt: "AND", builder: "m_value_equal" },
-          { name: "JASLXDM", value: roomTypes, linkOpt: "AND", builder: "m_value_equal" },
-          { name: "KXRQ", value: payload.date, linkOpt: "AND", builder: "equal" },
-          { name: "JSJC", value: String(slotNum), linkOpt: "AND", builder: "equal" },
-          { name: "KXJC", value: String(slotNum), linkOpt: "AND", builder: "equal" },
-          { name: "KSJC", value: String(slotNum), linkOpt: "AND", builder: "equal" }
-        ];
+    let lastCandidateError = null;
 
-        const params = new URLSearchParams();
-        params.append('XXXQDM', campusCode);
-        params.append('JXLDM', buildingCode);
-        params.append('JASLXDM', roomTypes);
-        params.append('KXRQ', payload.date);
-        params.append('KSJC', String(slotNum));
-        params.append('JSJC', String(slotNum));
-        params.append('KXJC', String(slotNum));
-        params.append('querySetting', JSON.stringify(querySetting));
-        params.append('pageSize', '600');
-        params.append('pageNumber', '1');
+    for (const endpoint of candidateEndpoints) {
+      try {
+        const promises = slots.map(async (slotNum) => {
+          const querySetting = [
+            { name: "XXXQDM", caption: "学校校区", linkOpt: "AND", builderList: "cbl_m_List", builder: "m_value_equal", value: campusCode, value_display: campusName },
+            { name: "JXLDM", caption: "教学楼", linkOpt: "AND", builderList: "cbl_m_List", builder: "m_value_equal", value: buildingCode, value_display: buildingNames },
+            { name: "JASLXDM", caption: "教室类型", linkOpt: "AND", builderList: "cbl_m_List", builder: "m_value_equal", value: roomTypes, value_display: "公用资源,体育馆,多媒体,制图教室,多功能设计教室,体育场,运动场,操场,普通,画室,计算机房,语音室,实验室" },
+            { name: "KXRQ", caption: "空闲日期", linkOpt: "AND", builderList: "cbl_Other", builder: "equal", value: payload.date },
+            { name: "KXJC", caption: "空闲节次", builder: "lessEqual", linkOpt: "AND", builderList: "cbl_Other", value: String(slotNum) },
+            { name: "KXJC", caption: "空闲节次", linkOpt: "AND", builderList: "cbl_String", builder: "moreEqual", value: String(slotNum) },
+            { name: "XXXQDM", value: campusCode, linkOpt: "AND", builder: "m_value_equal" },
+            { name: "JXLDM", value: buildingCode, linkOpt: "AND", builder: "m_value_equal" },
+            { name: "JASLXDM", value: roomTypes, linkOpt: "AND", builder: "m_value_equal" },
+            { name: "KXRQ", value: payload.date, linkOpt: "AND", builder: "equal" },
+            { name: "JSJC", value: String(slotNum), linkOpt: "AND", builder: "equal" },
+            { name: "KXJC", value: String(slotNum), linkOpt: "AND", builder: "equal" },
+            { name: "KSJC", value: String(slotNum), linkOpt: "AND", builder: "equal" }
+          ];
 
-        const resp = await fetch(url, {
-          method: 'POST',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-            'X-Requested-With': 'XMLHttpRequest',
-            'Accept': 'application/json, text/javascript, */*; q=0.01'
-          },
-          body: params.toString()
-        });
+          const params = new URLSearchParams();
+          params.append('XXXQDM', campusCode);
+          params.append('JXLDM', buildingCode);
+          params.append('JASLXDM', roomTypes);
+          params.append('KXRQ', payload.date);
+          params.append('KSJC', String(slotNum));
+          params.append('JSJC', String(slotNum));
+          params.append('KXJC', String(slotNum));
+          params.append('querySetting', JSON.stringify(querySetting));
+          params.append('pageSize', '600');
+          params.append('pageNumber', '1');
 
-        if (!resp.ok) {
-          if (resp.status === 401) {
+          // 注入 5 秒超时保护
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), 5000);
+
+          let resp;
+          try {
+            resp = await fetch(endpoint.url, {
+              method: 'POST',
+              credentials: 'include',
+              headers: {
+                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json, text/javascript, */*; q=0.01'
+              },
+              body: params.toString(),
+              signal: controller.signal
+            });
+          } catch (fetchErr) {
+            if (fetchErr.name === 'AbortError') {
+              const toErr = new Error('TIMEOUT');
+              toErr.code = 'TIMEOUT';
+              throw toErr;
+            }
+            throw fetchErr;
+          } finally {
+            clearTimeout(timer);
+          }
+
+          if (!resp.ok) {
+            if (resp.status === 401) {
+              throw new Error('UNAUTHENTICATED');
+            }
+            throw new Error(`HTTP_${resp.status}`);
+          }
+          const text = await resp.text();
+          if (
+            text.includes('<!DOCTYPE') ||
+            text.includes('<html') ||
+            text.includes('Not login!') ||
+            text.includes('401.png') ||
+            text.includes('统一身份认证') ||
+            text.includes('login')
+          ) {
             throw new Error('UNAUTHENTICATED');
           }
-          return { slot: slotNum, rows: [] };
-        }
-        const text = await resp.text();
-        if (
-          text.includes('<!DOCTYPE') || 
-          text.includes('<html') || 
-          text.includes('Not login!') || 
-          text.includes('401.png') || 
-          text.includes('统一身份认证') || 
-          text.includes('login')
-        ) {
-          throw new Error('UNAUTHENTICATED');
-        }
-        const json = JSON.parse(text);
-        return { slot: slotNum, rows: json?.datas?.cxkxjs?.rows || [] };
-      });
+          const json = JSON.parse(text);
+          const rows = json?.datas?.cxkxjs?.rows;
+          if (!Array.isArray(rows)) {
+            throw new Error('NO_ROWS');
+          }
+          return { slot: slotNum, rows };
+        });
 
-      const slotsData = await Promise.all(promises);
-      return { success: true, slotsData };
-    } catch (err) {
-      return {
-        success: false,
-        error: err.message === 'UNAUTHENTICATED' ? 'UNAUTHENTICATED' : 'NETWORK_FAIL',
-        message: err.message
-      };
+        const slotsData = await Promise.all(promises);
+        return { success: true, slotsData, channel: endpoint.name };
+      } catch (err) {
+        const isTimeout = (err.code === 'TIMEOUT' || err.message === 'TIMEOUT');
+        const isUnauth = (err.message === 'UNAUTHENTICATED');
+        lastCandidateError = {
+          success: false,
+          error: isUnauth ? 'UNAUTHENTICATED' : (isTimeout ? 'TIMEOUT' : 'NETWORK_ERROR'),
+          message: isTimeout ? '请求教务超时 (5s)' : (err.message || '网络连接失败')
+        };
+        // 若为未认证，无需再测备用通道
+        if (isUnauth) return lastCandidateError;
+      }
     }
+
+    return lastCandidateError || {
+      success: false,
+      error: 'NETWORK_ERROR',
+      message: '双通道请求均失败'
+    };
   }
 
   // ==========================================================================
@@ -1064,7 +1126,7 @@
         // Determine building dynamically matching currentBuildings
         let bCode = String(row.JXLDM || '');
         if (!bCode || bCode === 'null' || !buildingRoomsMap[bCode]) {
-          const matched = currentBuildings.find(b => 
+          const matched = currentBuildings.find(b =>
             row.JASMC.includes(b.shortName) || row.JASMC.includes(b.name) || row.JASMC.includes(b.id)
           );
           bCode = matched ? matched.id : (currentBuildings[0] ? currentBuildings[0].id : '65');
@@ -1649,11 +1711,11 @@
     container.innerHTML = '';
 
     const currentBldg = currentBuildings.find(b => b.id === state.buildingId) || currentBuildings[0] || { id: '65', name: '教学楼', shortName: '教学楼' };
-    
+
     document.getElementById('currentBuildingTitle').textContent = `${currentBldg.shortName} (${currentBldg.name})`;
 
     const allRooms = buildingRoomsMap[currentBldg.id] || [];
-    
+
     // Filter rooms based on classroom category toggles (small, medium, large, special)
     const visibleRooms = allRooms.filter(r => {
       if (r.category === 'small' && !state.roomTypes.small) return false;
@@ -1670,26 +1732,31 @@
     }
 
     if (visibleRooms.length === 0) {
-      // 1. Situation 2: 教务系统无法连接 (无登录/会话过期/网络中断)
-      if (state.fetchStatus === 'UNAUTHENTICATED' || state.fetchStatus === 'NETWORK_ERROR' || !state.isDataLoaded) {
+      // 1. Situation 2: 教务系统无法连接 (无登录/会话过期/网络中断/连接超时)
+      if (state.fetchStatus === 'UNAUTHENTICATED' || state.fetchStatus === 'NETWORK_ERROR' || state.fetchStatus === 'TIMEOUT' || !state.isDataLoaded) {
         const isAuth = state.fetchStatus === 'UNAUTHENTICATED';
+        const isTimeout = state.fetchStatus === 'TIMEOUT';
         container.innerHTML = `
           <div class="cabin-empty-card error-state">
-            <div class="empty-state-icon">${isAuth ? '🔒' : '⚠️'}</div>
-            <div class="empty-state-title">${isAuth ? '教务系统未连接 · WebVPN 未登录' : '教务接口通信失败 · 未能获取排课'}</div>
+            <div class="empty-state-icon">${isAuth ? '🔒' : (isTimeout ? '⏱️' : '⚠️')}</div>
+            <div class="empty-state-title">${isAuth ? '吉大教务未登录认证' : (isTimeout ? '教务系统连接超时 (5s)' : '教务接口通信失败 · 未能获取排课')}</div>
             <div class="empty-state-desc">
-              ${isAuth 
-                ? '当前 WebVPN 会话未激活或已过期。仪表盘严守 100% 官方真实排课原则，不使用伪造数据。请先登录吉大 WebVPN 后重新拉取。' 
-                : '与吉大教务处排课服务 (cxkxjs.do) 通信失败或校园网络中断，未能拉取排课数据。'}
+              ${isAuth
+            ? '当前教务会话未激活或已过期。请完成认证登录后重新拉取。'
+            : (isTimeout
+              ? '连接吉大教务服务 5 秒超时无响应。在校内系统会自动优先选择校园网直连；校外请连接 WebVPN。'
+              : '与吉大教务处排课服务 (cxkxjs.do) 通信失败或校园网络中断，未能拉取排课数据。')}
             </div>
             <div class="empty-state-actions">
-              ${isAuth ? `<a href="https://vpn.jlu.edu.cn/https/48714f71342f7a336d582f7e2857373756c9770f46c0c2b0ff87560d5a42f1/jwapp/sys/kxjas/*default/index.do?THEME=purple&EMAP_LANG=en#/kxjscx" target="_blank" class="btn-empty-action primary">🔗 激活吉大教务空闲教室会话</a>` : ''}
-              <button class="btn-empty-action secondary" id="btnRetryEmptyFetch">🔄 重新获取排课数据</button>
+              ${isAuth ? `<button class="btn-empty-action primary" id="btnReloginEmpty">📱 微信扫码 / 统一认证一键登录</button>` : ''}
+              <button class="btn-empty-action secondary" id="btnRetryEmptyFetch">🔄 重新尝试获取真实排课</button>
             </div>
           </div>
         `;
         const retryBtn = container.querySelector('#btnRetryEmptyFetch');
         if (retryBtn) retryBtn.addEventListener('click', () => loadParallelTimelineData());
+        const reloginBtn = container.querySelector('#btnReloginEmpty');
+        if (reloginBtn) reloginBtn.addEventListener('click', () => startEmbeddedQrLoginFlow());
         return;
       }
 
@@ -1738,9 +1805,9 @@
             <div class="empty-switch-title">👉 推荐查看同校区其他有空闲座位的教学楼：</div>
             <div class="empty-switch-btns">
               ${otherBuildingsWithRooms.map(b => {
-                const count = (buildingRoomsMap[b.id] || []).length;
-                return `<button class="btn-switch-bldg" data-bldg-id="${b.id}">🏢 切换至 ${b.shortName} (${count} 间可用)</button>`;
-              }).join('')}
+          const count = (buildingRoomsMap[b.id] || []).length;
+          return `<button class="btn-switch-bldg" data-bldg-id="${b.id}">🏢 切换至 ${b.shortName} (${count} 间可用)</button>`;
+        }).join('')}
             </div>
           </div>
         `;
@@ -1851,7 +1918,7 @@
         nowBtn.disabled = false;
         nowBtn.style.opacity = '1';
         nowBtn.style.cursor = 'pointer';
-        
+
         const timeInfo = getCurrentTimeSlotInfo();
         if (nowHint) nowHint.textContent = timeInfo.hintText;
         if (slotBadgeEl) {
@@ -2165,24 +2232,46 @@
     const titleEl = document.getElementById('barrierTitle');
     const subtitleEl = document.getElementById('barrierSubtitle');
     const diagTextEl = document.getElementById('barrierDiagnosticsText');
+    const iconEl = barrierEl.querySelector('.barrier-icon-large');
 
     const isUnauth = (errorResult?.error === 'UNAUTHENTICATED');
+    const isTimeout = (errorResult?.error === 'TIMEOUT');
     const qrBtn = document.getElementById('btnToggleEmbeddedQr');
     const retryBtn = document.getElementById('btnRetryRealFetch');
 
+    const isDualFail = (errorResult?.error === 'DUAL_CHANNELS_UNREACHABLE');
+
     if (qrBtn) qrBtn.style.display = isUnauth ? 'inline-flex' : 'none';
-    if (retryBtn) retryBtn.style.display = isUnauth ? 'none' : 'inline-flex';
+    if (retryBtn) retryBtn.style.display = 'inline-flex';
 
     if (isUnauth) {
-      titleEl.textContent = '🔒 吉大教务未登录认证';
+      if (iconEl) iconEl.textContent = '🔒';
+      titleEl.textContent = '吉大教务未登录认证';
       subtitleEl.innerHTML = `
-        仪表盘严守 <strong>100% 真实教务数据</strong> 原则。<br>
-        微信扫码登录已就绪：点击下方按钮完成认证，扫码后<strong>本页面将全自动检测并刷新</strong>，立即可用。
+        <br>
+        点击下方按钮完成登录认证，认证成功后<strong>本页面将全自动检测并刷新</strong>。
       `;
-    } else {
-      titleEl.textContent = '⚠️ 无法获取吉大教务处实时排课数据';
+    } else if (isTimeout) {
+      if (iconEl) iconEl.textContent = '⏱️';
+      titleEl.textContent = '吉大教务服务连接超时 (5s)';
       subtitleEl.innerHTML = `
-        接口通信失败或校园网连接中断。<strong>系统已坚决阻断界面渲染</strong>，以防虚假数据误导自习决策。
+        教务排课服务响应超过 5 秒限制。<br>
+        系统已<strong>优先测试校园网直连</strong>；如在校内请确认已登录校园网认证，在校外请确认已连接 WebVPN。
+      `;
+      stopQrLoginPolling();
+    } else if (isDualFail) {
+      if (iconEl) iconEl.textContent = '🌐';
+      titleEl.textContent = '校园网与校外 WebVPN 均不可达';
+      subtitleEl.innerHTML = `
+        吉大校园网 (oa.jlu) 与校外 WebVPN (vpn.jlu) 均未能连通。<br>
+        请检查设备本地网络连接或吉大网线/Wi-Fi 是否已插好。
+      `;
+      stopQrLoginPolling();
+    } else {
+      if (iconEl) iconEl.textContent = '⚠️';
+      titleEl.textContent = '无法连接吉大教务处排课数据';
+      subtitleEl.innerHTML = `
+        接口通信失败或校园网络中断。
       `;
       stopQrLoginPolling();
     }
@@ -2193,6 +2282,7 @@
         status: 'HARD_FAIL_BLOCKED',
         error: errorResult?.error || 'UNKNOWN_ERROR',
         message: errorResult?.message || '无法获取真实排课',
+        channel: errorResult?.channel || 'DIRECT_PRIORITY',
         targetUrl: 'cxkxjs.do',
         targetDate: state.queryDate,
         targetCampus: `${currentCampus ? currentCampus.name : '校区'} (${state.campusCode})`,
@@ -2205,7 +2295,7 @@
     stopQrLoginPolling();
 
     if (loginAuthWindow && !loginAuthWindow.closed) {
-      try { loginAuthWindow.close(); } catch (e) {}
+      try { loginAuthWindow.close(); } catch (e) { }
     }
 
     const statusText = document.getElementById('qrStatusText');
@@ -2220,45 +2310,46 @@
   }
 
   function startEmbeddedQrLoginFlow() {
-    const authUrl = 'https://vpn.jlu.edu.cn/login?cas_login=true';
     const statusText = document.getElementById('qrStatusText');
     const qrContainer = document.getElementById('barrierQrContainer');
 
     if (qrContainer) qrContainer.style.display = 'flex';
     if (statusText) {
-      statusText.innerHTML = '<span class="qr-status-dot pulse"></span> 正在打开官方微信扫码认证窗口...';
+      statusText.innerHTML = '<span class="qr-status-dot pulse"></span> 正在准备官方认证通道...';
     }
 
-    const openPopup = () => {
+    const openPopup = (authUrl) => {
+      const targetUrl = authUrl || 'https://cas.jlu.edu.cn/tpass/login?service=https%3A%2F%2Fiedu.jlu.edu.cn%2Fjwapp%2Fsys%2Fkxjas%2F*default%2Findex.do%3FTHEME%3Dpurple%26EMAP_LANG%3Den';
       if (statusText) {
-        statusText.innerHTML = '<span class="qr-status-dot pulse"></span> 正在等待微信扫码确认... 取得真实排课数据后将自动关闭并进入仪表盘';
+        statusText.innerHTML = '<span class="qr-status-dot pulse"></span> 正在等待登录确认... 取得真实排课数据后将自动关闭并进入仪表盘';
       }
 
-      // Open standard centered popup window without iframe frame-busting or CORS restrictions
       const width = 520;
       const height = 650;
       const left = Math.max(0, Math.round(window.screenX + (window.outerWidth - width) / 2));
       const top = Math.max(0, Math.round(window.screenY + (window.outerHeight - height) / 2));
-      
+
       if (!loginAuthWindow || loginAuthWindow.closed) {
         loginAuthWindow = window.open(
-          authUrl, 
-          'JLU_AUTH_WINDOW', 
+          targetUrl,
+          'JLU_AUTH_WINDOW',
           `width=${width},height=${height},left=${left},top=${top},menubar=no,toolbar=no,location=no,status=no`
         );
       } else {
         loginAuthWindow.focus();
       }
 
-      // Strictly probe cxkxjs.do: Only trigger reload when REAL data arrives
+      // 持续探测真实排课数据，一旦登录成功自动进入
       stopQrLoginPolling();
       qrPollTimer = setInterval(checkLoginAndAutoReload, 2000);
     };
 
-    // Pre-set last_select_type=qrcode_login so official CAS directly shows WeChat QR code tab
     if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
       chrome.runtime.sendMessage({ type: 'PREPARE_QR_LOGIN' }, () => {
-        openPopup();
+        chrome.runtime.sendMessage({ type: 'GET_ACTIVE_CHANNEL' }, (chRes) => {
+          const resolvedAuthUrl = chRes?.authUrl;
+          openPopup(resolvedAuthUrl);
+        });
       });
     } else {
       openPopup();

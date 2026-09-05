@@ -1,10 +1,14 @@
 /**
  * need_more_jlu - Background Service Worker (Manifest V3)
+ * 智能双通道探测架构：
+ * 1. 直连 OA (oa.jlu.edu.cn) 测试校园网可达性：可连则校园网可达，优先走校园网；不可连则校园网不可达；
+ * 2. 并行测试 WebVPN (vpn.jlu.edu.cn)：可连则支持 VPN，不可连则不支持；
+ * 3. 都不可达时明确阻断提示两条均不可达；
+ * 4. 校园网下若教务系统未登录/无权限，精准拦截 UNAUTHENTICATED，绝不回退至不可达的 WebVPN 导致超时。
  */
 
 chrome.runtime.onInstalled.addListener(() => {
   console.log('[need_more_jlu] 扩展已安装或已更新');
-  // Initialize default settings if not exists
   chrome.storage.local.get(['nmj_settings'], (res) => {
     if (!res.nmj_settings) {
       chrome.storage.local.set({
@@ -19,12 +23,156 @@ chrome.runtime.onInstalled.addListener(() => {
   });
 });
 
-// Real Data API Bridge for Free Classrooms (cxkxjs.do)
+// ============================================================================
+// 1. 全局网络超时配置与包装工具 (严格 5 秒超时)
+// ============================================================================
+
+const DEFAULT_TIMEOUT_MS = 5000;
+
+async function fetchWithTimeout(resource, options = {}, timeoutMs = DEFAULT_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(resource, {
+      ...options,
+      signal: controller.signal
+    });
+    return response;
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      const timeoutError = new Error(`连接超时 (${timeoutMs / 1000}s)`);
+      timeoutError.name = 'TimeoutError';
+      timeoutError.code = 'TIMEOUT';
+      throw timeoutError;
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// ============================================================================
+// 2. 双通道定义与可达性并行探测引擎
+// ============================================================================
+
+const WEBVPN_HASH = '/https/48714f71342f7a336d582f7e2857373756c9770f46c0c2b0ff87560d5a42f1';
+const OA_WEBVPN_HASH = '/https/48714f71342f7a336d582f7e2857373750cd3d1004df80a0b5971c1b1a';
+
+const CHANNELS = {
+  DIRECT: {
+    id: 'DIRECT',
+    name: '校园网直连',
+    probeUrl: 'https://oa.jlu.edu.cn/defaultroot/PortalInformation!jldxList.action?channelId=179577',
+    apiUrl: 'https://iedu.jlu.edu.cn/jwapp/sys/kxjas/modules/kxjscx/cxkxjs.do',
+    referer: 'https://iedu.jlu.edu.cn/jwapp/sys/kxjas/*default/index.do?THEME=purple&EMAP_LANG=en',
+    origin: 'https://iedu.jlu.edu.cn',
+    oaUrl: 'https://oa.jlu.edu.cn/defaultroot/PortalInformation!jldxList.action?channelId=179577',
+    authUrl: 'https://cas.jlu.edu.cn/tpass/login?service=https%3A%2F%2Fiedu.jlu.edu.cn%2Fjwapp%2Fsys%2Fkxjas%2F*default%2Findex.do%3FTHEME%3Dpurple%26EMAP_LANG%3Den'
+  },
+  WEBVPN: {
+    id: 'WEBVPN',
+    name: '校外 WebVPN 网关',
+    probeUrl: 'https://vpn.jlu.edu.cn/',
+    apiUrl: `https://vpn.jlu.edu.cn${WEBVPN_HASH}/jwapp/sys/kxjas/modules/kxjscx/cxkxjs.do?vpn-12-o2-iedu.jlu.edu.cn`,
+    referer: `https://vpn.jlu.edu.cn${WEBVPN_HASH}/jwapp/sys/kxjas/*default/index.do?THEME=purple&EMAP_LANG=en`,
+    origin: 'https://vpn.jlu.edu.cn',
+    oaUrl: `https://vpn.jlu.edu.cn${OA_WEBVPN_HASH}/defaultroot/PortalInformation!jldxList.action?channelId=179577`,
+    authUrl: 'https://vpn.jlu.edu.cn/login?cas_login=true'
+  }
+};
+
+let cachedProbeState = null;
+let lastProbeTime = 0;
+const PROBE_TTL = 30000; // 30 秒缓存探测状态
+
+/**
+ * 测试直连 OA 验证校园网可达性
+ */
+async function checkOaReachability() {
+  try {
+    const resp = await fetchWithTimeout(CHANNELS.DIRECT.probeUrl, {
+      method: 'GET',
+      credentials: 'include',
+      headers: {
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'User-Agent': navigator.userAgent
+      }
+    }, 4500);
+    return resp && resp.status > 0;
+  } catch (e) {
+    return false;
+  }
+}
+
+/**
+ * 测试 WebVPN 网关可达性
+ */
+async function checkVpnReachability() {
+  try {
+    const resp = await fetchWithTimeout(CHANNELS.WEBVPN.probeUrl, {
+      method: 'GET',
+      credentials: 'include',
+      headers: {
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'User-Agent': navigator.userAgent
+      }
+    }, 4500);
+    return resp && resp.status > 0;
+  } catch (e) {
+    return false;
+  }
+}
+
+/**
+ * 并行测试双通道可达性：
+ * oa可连 -> 校园网可达，优先走校园网；
+ * vpn可连 -> 支持vpn；
+ * 都不可达 -> 提示两条都不可达。
+ */
+async function probeChannels(forceRefresh = false) {
+  const now = Date.now();
+  if (!forceRefresh && cachedProbeState && (now - lastProbeTime < PROBE_TTL)) {
+    return cachedProbeState;
+  }
+
+  // 并行测试直连 OA 与 WebVPN
+  const [oaOk, vpnOk] = await Promise.all([
+    checkOaReachability(),
+    checkVpnReachability()
+  ]);
+
+  let selectedChannel = null;
+  if (oaOk) {
+    // 校园网可达：坚决优先选用校园网直连！
+    selectedChannel = 'DIRECT';
+  } else if (vpnOk) {
+    // 校园网不可达，但 WebVPN 可达
+    selectedChannel = 'WEBVPN';
+  } else {
+    // 两条都不可达
+    selectedChannel = null;
+  }
+
+  cachedProbeState = {
+    selectedChannel,
+    oaOk,
+    vpnOk,
+    timestamp: now
+  };
+  lastProbeTime = now;
+
+  console.log(`[need_more_jlu] 通道探测完成: 校园网(OA直连)=${oaOk}, WebVPN=${vpnOk}, 优选通道=${selectedChannel}`);
+  return cachedProbeState;
+}
+
+// ============================================================================
+// 3. 运行时消息分发
+// ============================================================================
+
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.type === 'PREPARE_QR_LOGIN') {
     (async () => {
       try {
-        // Pre-set last_select_type=qrcode_login on CAS & WebVPN so official login opens on WeChat QR tab
         const cookieConfigs = [
           { url: 'https://cas.jlu.edu.cn/tpass/login', name: 'last_select_type', value: 'qrcode_login', path: '/tpass' },
           { url: 'https://cas.jlu.edu.cn', name: 'last_select_type', value: 'qrcode_login', path: '/' },
@@ -35,44 +183,69 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         for (const conf of cookieConfigs) {
           try {
             await chrome.cookies.set(conf);
-          } catch (err) {
-            console.warn('[need_more_jlu] 设置登录类型 Cookie 提示:', conf.url, err);
-          }
+          } catch (err) {}
         }
-      } catch (e) {
-        console.warn('[need_more_jlu] 预设二维码模式失败:', e);
-      }
+      } catch (e) {}
       sendResponse({ success: true });
     })();
-    return true; // async
+    return true;
+  }
+
+  if (request.type === 'GET_ACTIVE_CHANNEL') {
+    probeChannels(request.forceRefresh || false)
+      .then(probe => {
+        const chKey = probe.selectedChannel || (probe.oaOk ? 'DIRECT' : 'WEBVPN');
+        const ch = CHANNELS[chKey] || CHANNELS.DIRECT;
+        sendResponse({
+          success: true,
+          channel: chKey,
+          channelName: ch.name,
+          oaOk: probe.oaOk,
+          vpnOk: probe.vpnOk,
+          oaUrl: ch.oaUrl,
+          authUrl: ch.authUrl
+        });
+      })
+      .catch(err => {
+        sendResponse({
+          success: false,
+          channel: 'DIRECT',
+          oaUrl: CHANNELS.DIRECT.oaUrl,
+          authUrl: CHANNELS.DIRECT.authUrl,
+          error: err.message
+        });
+      });
+    return true;
   }
 
   if (request.type === 'CHECK_AUTH_STATUS') {
-    // Strictly verify if REAL classroom data can be queried from cxkxjs.do
-    // Only return isLoggedIn: true when actual classroom rows are successfully retrieved!
     handleFetchClassrooms({ pageSize: 1 })
       .then(result => {
         const isRealDataReady = Boolean(result && result.success === true && Array.isArray(result.rows));
-        sendResponse({ isLoggedIn: isRealDataReady });
+        sendResponse({ 
+          isLoggedIn: isRealDataReady, 
+          channel: result?.channel || 'DIRECT',
+          error: result?.error || null
+        });
       })
-      .catch(() => {
-        sendResponse({ isLoggedIn: false });
+      .catch((err) => {
+        sendResponse({ isLoggedIn: false, error: err.message });
       });
-    return true; // async sendResponse
+    return true;
   }
 
   if (request.type === 'FETCH_CLASSROOMS') {
     handleFetchClassrooms(request.payload)
       .then(result => sendResponse(result))
-      .catch(err => sendResponse({ success: false, error: err.message || String(err) }));
-    return true; // async sendResponse
+      .catch(err => sendResponse({ success: false, error: err.code || 'UNKNOWN_ERROR', message: err.message || String(err) }));
+    return true;
   }
 
   if (request.type === 'FETCH_TIMELINE') {
     handleFetchTimeline(request.payload)
       .then(result => sendResponse(result))
-      .catch(err => sendResponse({ success: false, error: err.message || String(err) }));
-    return true; // async sendResponse
+      .catch(err => sendResponse({ success: false, error: err.code || 'UNKNOWN_ERROR', message: err.message || String(err) }));
+    return true;
   }
 });
 
@@ -84,111 +257,36 @@ function getLocalDateString() {
   return `${year}-${month}-${day}`;
 }
 
-async function handleFetchTimeline(payload = {}) {
-  // Slots 1 to 12 (100% matches official schedule slices)
-  const slots = payload.slots || [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
-  
-  // 1. First ensure session handshake with JLU EMAP system (Auto warm-up)
-  await ensureJluSessionWarmup();
+// ============================================================================
+// 4. 会话自动预热
+// ============================================================================
 
-  // Parallel fetch for each slot across requested buildings
-  const slotPromises = slots.map(slotNum => {
-    return handleFetchClassrooms({
-      ...payload,
-      startSection: slotNum,
-      endSection: slotNum,
-      pageSize: 600
-    }).then(res => ({
-      slot: slotNum,
-      res
-    }));
-  });
-
-  const results = await Promise.all(slotPromises);
-
-  // Check if any request failed due to authentication
-  const unauth = results.find(r => r.res && r.res.error === 'UNAUTHENTICATED');
-  if (unauth) {
-    return {
-      success: false,
-      error: 'UNAUTHENTICATED',
-      message: '吉大教务会话未激活：如在校外请登录 WebVPN (vpn.jlu.edu.cn)；如在校内请确认已登录校园网认证'
-    };
-  }
-
-  return {
-    success: true,
-    slotsData: results.map(r => ({
-      slot: r.slot,
-      success: r.res ? r.res.success : false,
-      rows: (r.res && r.res.rows) ? r.res.rows : []
-    })),
-    queryMeta: payload
-  };
-}
-
-/**
- * Automatically warm-up & activate the EMAP educational session.
- * When logging into WebVPN, the WebVPN ticket cookie is present, but the EMAP sub-system 
- * requires visiting the entrance page to initialize JSESSIONID / _WEU session tokens.
- */
 let lastWarmupTime = 0;
-async function ensureJluSessionWarmup() {
+async function ensureJluSessionWarmup(selectedChannel) {
   const now = Date.now();
-  // Warm up at most once every 60 seconds
   if (now - lastWarmupTime < 60000) return;
   lastWarmupTime = now;
 
-  const webvpnHash = '/https/48714f71342f7a336d582f7e2857373756c9770f46c0c2b0ff87560d5a42f1';
-  const warmupUrls = [
-    `https://vpn.jlu.edu.cn${webvpnHash}/jwapp/sys/kxjas/*default/index.do?THEME=purple&EMAP_LANG=en`,
-    `https://iedu.jlu.edu.cn/jwapp/sys/kxjas/*default/index.do?THEME=purple&EMAP_LANG=en`
-  ];
+  const targetCh = CHANNELS[selectedChannel] || CHANNELS.DIRECT;
+  const warmupUrl = (selectedChannel === 'DIRECT')
+    ? 'https://iedu.jlu.edu.cn/jwapp/sys/kxjas/*default/index.do?THEME=purple&EMAP_LANG=en'
+    : `https://vpn.jlu.edu.cn${WEBVPN_HASH}/jwapp/sys/kxjas/*default/index.do?THEME=purple&EMAP_LANG=en`;
 
-  for (const url of warmupUrls) {
-    try {
-      await fetch(url, {
-        method: 'GET',
-        credentials: 'include',
-        headers: {
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-          'User-Agent': navigator.userAgent
-        }
-      });
-    } catch (e) {
-      // Ignore network errors in warm-up, proceed to main requests
-    }
-  }
-}
-
-/**
- * Strictly verifies whether WebVPN session is currently authenticated.
- * Prevents premature reload while user is still viewing the QR code.
- */
-async function verifyJluSessionActive() {
   try {
-    const webvpnHash = '/https/48714f71342f7a336d582f7e2857373756c9770f46c0c2b0ff87560d5a42f1';
-    const checkUrl = `https://vpn.jlu.edu.cn${webvpnHash}/jwapp/sys/kxjas/*default/index.do?THEME=purple&EMAP_LANG=en`;
-    const resp = await fetch(checkUrl, {
+    await fetchWithTimeout(warmupUrl, {
       method: 'GET',
       credentials: 'include',
-      redirect: 'manual'
-    });
-
-    if (resp.status === 200) {
-      const text = await resp.text();
-      // If still redirected to login or containing Not login/login form, not yet logged in
-      if (text.includes('cas_login') || text.includes('统一身份认证') || text.includes('401.png') || text.includes('Not login!')) {
-        return false;
+      headers: {
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'User-Agent': navigator.userAgent
       }
-      // Successfully reached actual EMAP SPA shell
-      return text.includes('kxjas') || text.includes('EMAP');
-    }
-    return false;
-  } catch (e) {
-    return false;
-  }
+    }, 4500);
+  } catch (e) {}
 }
+
+// ============================================================================
+// 5. 教室查询核心逻辑（严格遵循可达性与权限拦截）
+// ============================================================================
 
 async function handleFetchClassrooms(payload = {}) {
   const {
@@ -205,13 +303,9 @@ async function handleFetchClassrooms(payload = {}) {
     ? '65,82,73' 
     : buildingCode;
 
-  // Use local date string instead of UTC to avoid early-morning day-lag
   const queryDate = date || getLocalDateString();
-
-  // Classroom types: query all types to capture full rooms, clean on client-side
   const roomTypes = '03,02,01,04,05,06,13,08,09,10,11,12,07';
 
-  // Construct canonical EMAP querySetting dynamically supporting any campus
   const querySetting = [
     { name: "XXXQDM", caption: "学校校区", linkOpt: "AND", builderList: "cbl_m_List", builder: "m_value_equal", value: campusCode },
     { name: "JXLDM", caption: "教学楼", linkOpt: "AND", builderList: "cbl_m_List", builder: "m_value_equal", value: finalBuildingCode },
@@ -240,118 +334,245 @@ async function handleFetchClassrooms(payload = {}) {
   params.append('pageSize', String(pageSize));
   params.append('pageNumber', '1');
 
-  // Dual-Channel support: WebVPN encrypted gateway & Campus LAN direct
-  const webvpnHash = '/https/48714f71342f7a336d582f7e2857373756c9770f46c0c2b0ff87560d5a42f1';
-  const webvpnUrl = `https://vpn.jlu.edu.cn${webvpnHash}/jwapp/sys/kxjas/modules/kxjscx/cxkxjs.do?vpn-12-o2-iedu.jlu.edu.cn`;
-  const webvpnReferer = `https://vpn.jlu.edu.cn${webvpnHash}/jwapp/sys/kxjas/*default/index.do?THEME=purple&EMAP_LANG=en`;
-  const directUrl = `https://iedu.jlu.edu.cn/jwapp/sys/kxjas/modules/kxjscx/cxkxjs.do`;
-  const directReferer = `https://iedu.jlu.edu.cn/jwapp/sys/kxjas/*default/index.do?THEME=purple&EMAP_LANG=en`;
+  // 1. 并行测试双通道可达性
+  const probe = await probeChannels();
 
-  // First try WebVPN endpoint, if unauthenticated try direct LAN endpoint
-  const targetEndpoints = [
-    { url: webvpnUrl, referer: webvpnReferer, origin: 'https://vpn.jlu.edu.cn' },
-    { url: directUrl, referer: directReferer, origin: 'https://iedu.jlu.edu.cn' }
-  ];
-  let lastError = null;
-
-  for (const endpoint of targetEndpoints) {
-    try {
-      const resp = await fetch(endpoint.url, {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-          'X-Requested-With': 'XMLHttpRequest',
-          'Accept': 'application/json, text/javascript, */*; q=0.01'
-        },
-        body: params.toString()
-      });
-
-      if (!resp.ok) {
-        if (resp.status === 401) {
-          lastError = {
-            success: false,
-            error: 'UNAUTHENTICATED',
-            message: '教务系统提示未登录 (HTTP 401 Not login!)，请登录 WebVPN 或吉大统一身份认证'
-          };
-          continue;
-        }
-        lastError = {
-          success: false,
-          error: 'HTTP_' + resp.status,
-          message: `教务系统接口响应异常 (HTTP ${resp.status})`
-        };
-        continue;
-      }
-
-      const text = await resp.text();
-      // Check if redirected to login/401 page (HTML / Not login)
-      if (
-        text.includes('<!DOCTYPE') || 
-        text.includes('<html') || 
-        text.includes('Not login!') || 
-        text.includes('401.png') || 
-        text.includes('统一身份认证') || 
-        text.includes('login')
-      ) {
-        lastError = {
-          success: false,
-          error: 'UNAUTHENTICATED',
-          message: 'WebVPN 未登录或校园网会话过期 (Not login!)，请先登录 WebVPN 或连接吉大校园网'
-        };
-        continue;
-      }
-
-      let json;
-      try {
-        json = JSON.parse(text);
-      } catch (e) {
-        lastError = {
-          success: false,
-          error: 'PARSE_ERROR',
-          message: '教务系统返回非标准 JSON 响应',
-          raw: text.slice(0, 300)
-        };
-        continue;
-      }
-
-      const rows = json?.datas?.cxkxjs?.rows;
-      if (!Array.isArray(rows)) {
-        lastError = {
-          success: false,
-          error: 'NO_DATA',
-          message: '教务系统未返回有效的 rows 列表',
-          raw: json
-        };
-        continue;
-      }
-
-      return {
-        success: true,
-        totalSize: json?.datas?.cxkxjs?.totalSize || rows.length,
-        rows: rows,
-        queryMeta: {
-          campusCode,
-          buildingCode: finalBuildingCode,
-          date: queryDate,
-          startSection,
-          endSection,
-          cleanOnly
-        }
-      };
-    } catch (err) {
-      lastError = {
-        success: false,
-        error: 'NETWORK_ERROR',
-        message: '网络连接失败，请确认是否处于校园网或已登录 WebVPN: ' + err.message
-      };
-    }
+  // 场景 A: 两条通道均不可达
+  if (!probe.selectedChannel) {
+    return {
+      success: false,
+      error: 'DUAL_CHANNELS_UNREACHABLE',
+      message: '吉大校园网 (oa.jlu.edu.cn) 与校外 WebVPN (vpn.jlu.edu.cn) 均不可达，请检查网络连接'
+    };
   }
 
-  return lastError || {
-    success: false,
-    error: 'UNKNOWN_ERROR',
-    message: '教务系统双通道探测均失败'
-  };
+  // 场景 B: 确定首选通道
+  const channelKey = probe.selectedChannel;
+  const endpoint = CHANNELS[channelKey];
+
+  try {
+    const resp = await fetchWithTimeout(endpoint.apiUrl, {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+        'X-Requested-With': 'XMLHttpRequest',
+        'Accept': 'application/json, text/javascript, */*; q=0.01',
+        'Referer': endpoint.referer,
+        'Origin': endpoint.origin
+      },
+      body: params.toString()
+    }, 5000);
+
+    if (!resp.ok) {
+      if (resp.status === 401) {
+        return {
+          success: false,
+          error: 'UNAUTHENTICATED',
+          channel: channelKey,
+          message: channelKey === 'DIRECT' 
+            ? '校园网已连通，但吉大教务系统提示未登录，请先登录统一身份认证'
+            : 'WebVPN 网关提示未登录，请先登录 WebVPN'
+        };
+      }
+      return {
+        success: false,
+        error: 'HTTP_' + resp.status,
+        channel: channelKey,
+        message: `教务系统接口响应异常 (HTTP ${resp.status})`
+      };
+    }
+
+    const text = await resp.text();
+    // 检查是否被拦截或重定向到登录页
+    if (
+      text.includes('<!DOCTYPE') || 
+      text.includes('<html') || 
+      text.includes('Not login!') || 
+      text.includes('401.png') || 
+      text.includes('统一身份认证') || 
+      text.includes('login')
+    ) {
+      // 关键拦截：校园网环境下直连连通但未登录，坚决返回 UNAUTHENTICATED，绝不回退至不可达的 WebVPN！
+      return {
+        success: false,
+        error: 'UNAUTHENTICATED',
+        channel: channelKey,
+        message: channelKey === 'DIRECT'
+          ? '校园网直连正常，但教务会话未登录或已过期，请完成统一身份认证'
+          : 'WebVPN 会话未激活或已过期，请先登录 WebVPN'
+      };
+    }
+
+    let json;
+    try {
+      json = JSON.parse(text);
+    } catch (e) {
+      return {
+        success: false,
+        error: 'PARSE_ERROR',
+        channel: channelKey,
+        message: '教务系统返回非标准 JSON 响应',
+        raw: text.slice(0, 300)
+      };
+    }
+
+    const rows = json?.datas?.cxkxjs?.rows;
+    if (!Array.isArray(rows)) {
+      return {
+        success: false,
+        error: 'NO_DATA',
+        channel: channelKey,
+        message: '教务系统未返回有效的 rows 列表',
+        raw: json
+      };
+    }
+
+    return {
+      success: true,
+      channel: channelKey,
+      totalSize: json?.datas?.cxkxjs?.totalSize || rows.length,
+      rows: rows,
+      queryMeta: {
+        campusCode,
+        buildingCode: finalBuildingCode,
+        date: queryDate,
+        startSection,
+        endSection,
+        cleanOnly
+      }
+    };
+  } catch (err) {
+    const isTimeout = (err.code === 'TIMEOUT' || err.name === 'TimeoutError');
+    // 如果校园网直连教务失败，且此时 WebVPN 是可用的，尝试降级到 WebVPN 一次
+    if (channelKey === 'DIRECT' && probe.vpnOk) {
+      console.warn('[need_more_jlu] 校园网直连教务接口失败，尝试安全降级至 WebVPN...');
+      try {
+        const vpnEndpoint = CHANNELS.WEBVPN;
+        const vpnResp = await fetchWithTimeout(vpnEndpoint.apiUrl, {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json, text/javascript, */*; q=0.01',
+            'Referer': vpnEndpoint.referer,
+            'Origin': vpnEndpoint.origin
+          },
+          body: params.toString()
+        }, 5000);
+
+        if (vpnResp.ok) {
+          const vpnText = await vpnResp.text();
+          if (
+            vpnText.includes('<!DOCTYPE') || 
+            vpnText.includes('Not login!') || 
+            vpnText.includes('401.png') || 
+            vpnText.includes('统一身份认证') || 
+            vpnText.includes('login')
+          ) {
+            return {
+              success: false,
+              error: 'UNAUTHENTICATED',
+              channel: 'WEBVPN',
+              message: 'WebVPN 未登录，请先登录 WebVPN'
+            };
+          }
+          const vpnJson = JSON.parse(vpnText);
+          const vpnRows = vpnJson?.datas?.cxkxjs?.rows;
+          if (Array.isArray(vpnRows)) {
+            return {
+              success: true,
+              channel: 'WEBVPN',
+              totalSize: vpnJson?.datas?.cxkxjs?.totalSize || vpnRows.length,
+              rows: vpnRows,
+              queryMeta: { campusCode, buildingCode: finalBuildingCode, date: queryDate, startSection, endSection, cleanOnly }
+            };
+          }
+        }
+      } catch (vpnErr) {}
+    }
+
+    return {
+      success: false,
+      error: isTimeout ? 'TIMEOUT' : 'NETWORK_ERROR',
+      channel: channelKey,
+      message: isTimeout 
+        ? `连接${endpoint.name}超时 (5s)，排课数据未能及时响应`
+        : `连接${endpoint.name}失败: ${err.message || '网络连接中断'}`
+    };
+  }
 }
 
+// ============================================================================
+// 6. 全天 12 节课切片并行查询
+// ============================================================================
+
+async function handleFetchTimeline(payload = {}) {
+  const slots = payload.slots || [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+  
+  // 1. 先探活通道
+  const probe = await probeChannels();
+  if (!probe.selectedChannel) {
+    return {
+      success: false,
+      error: 'DUAL_CHANNELS_UNREACHABLE',
+      message: '吉大校园网 (oa.jlu.edu.cn) 与校外 WebVPN (vpn.jlu.edu.cn) 均不可达，请检查网络连接'
+    };
+  }
+
+  // 2. 会话预热
+  await ensureJluSessionWarmup(probe.selectedChannel);
+
+  // 3. 并行拉取 12 个时段排课切片
+  const slotPromises = slots.map(slotNum => {
+    return handleFetchClassrooms({
+      ...payload,
+      startSection: slotNum,
+      endSection: slotNum,
+      pageSize: 600
+    }).then(res => ({
+      slot: slotNum,
+      res
+    }));
+  });
+
+  const results = await Promise.all(slotPromises);
+
+  // 4. 优先检查是否存在未登录认证 (UNAUTHENTICATED)
+  const unauth = results.find(r => r.res && r.res.error === 'UNAUTHENTICATED');
+  if (unauth) {
+    return {
+      success: false,
+      error: 'UNAUTHENTICATED',
+      channel: unauth.res?.channel || probe.selectedChannel,
+      message: unauth.res?.message || '吉大教务会话未激活：如在校内请登录校园网统一认证；如在校外请登录 WebVPN'
+    };
+  }
+
+  // 5. 统计有效成功的切片
+  const successfulSlots = results.filter(r => r.res && r.res.success === true);
+
+  if (successfulSlots.length === 0) {
+    const firstFail = results.find(r => r.res && !r.res.success)?.res;
+    const errorType = firstFail?.error || 'NETWORK_ERROR';
+    return {
+      success: false,
+      error: errorType,
+      channel: firstFail?.channel || probe.selectedChannel,
+      message: firstFail?.message || '无法连接吉大教务排课服务，未能获取真实排课数据'
+    };
+  }
+
+  const activeCh = successfulSlots[0]?.res?.channel || probe.selectedChannel;
+  return {
+    success: true,
+    channel: activeCh,
+    slotsData: results.map(r => ({
+      slot: r.slot,
+      success: r.res ? r.res.success : false,
+      rows: (r.res && r.res.rows) ? r.res.rows : []
+    })),
+    queryMeta: payload
+  };
+}

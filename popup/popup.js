@@ -1,5 +1,6 @@
 /**
  * need_more_jlu - Popup Controller (v2.0.0)
+ * 智能通道感知：优先校园网直连，按需切换 WebVPN
  */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -27,6 +28,21 @@ document.addEventListener('DOMContentLoaded', () => {
     popupCampusName.textContent = campusNames[campusKey] || '南岭校区';
   }
 
+  // 默认优先使用校园网直连 OA 地址（防止校内无法连接 WebVPN）
+  let currentOaUrl = 'https://oa.jlu.edu.cn/defaultroot/PortalInformation!jldxList.action?channelId=179577';
+
+  // 探活并获取当前首选通道
+  if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+    chrome.runtime.sendMessage({ type: 'GET_ACTIVE_CHANNEL' }, (res) => {
+      if (res && res.oaUrl) {
+        currentOaUrl = res.oaUrl;
+      }
+      if (btnOpenOA && res && res.channelName) {
+        btnOpenOA.title = `打开吉大官方 OA (${res.channelName})`;
+      }
+    });
+  }
+
   // Open Classroom Study Dashboard
   if (btnOpenDashboard) {
     btnOpenDashboard.addEventListener('click', () => {
@@ -42,10 +58,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Open OA
+  // Open OA (自适应校园网直连 / WebVPN)
   if (btnOpenOA) {
     btnOpenOA.addEventListener('click', () => {
-      const targetUrl = 'https://vpn.jlu.edu.cn/https/48714f71342f7a336d582f7e2857373750cd3d1004df80a0b5971c1b1a/defaultroot/PortalInformation!jldxList.action?channelId=179577';
+      const targetUrl = currentOaUrl;
       if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.create) {
         chrome.tabs.create({ url: targetUrl });
       } else {

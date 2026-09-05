@@ -36,8 +36,8 @@
   "content_scripts": [
     {
       "matches": [
-        "*://oa.jlu.edu.cn/defaultroot/PortalInformation!*",
-        "*://vpn.jlu.edu.cn/https/*/defaultroot/PortalInformation!*"
+        "*://oa.jlu.edu.cn/*",
+        "*://vpn.jlu.edu.cn/*defaultroot/*"
       ],
       "css": [
         "content/inject.css"

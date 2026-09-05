@@ -1847,7 +1847,7 @@ body.theme-light .timeline-slot-dot:nth-child(8)::after {
 .barrier-title {
   font-size: 22px;
   font-weight: 800;
-  color: #f1f5f9;
+  color: var(--text-primary);
   margin-bottom: 12px;
   letter-spacing: -0.3px;
 }
