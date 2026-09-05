@@ -67,6 +67,109 @@ let cachedProbeState = null;
 let lastProbeTime = 0;
 
 /**
+ * 核心网络标头与 Session Cookie 注入同步：
+ * 解决 Chrome MV3 中 Service Worker 跨域 POST 被浏览器 SameSite 机制拦截、
+ * 以及 Origin/Referer 被浏览器强制重写为 chrome-extension:// 的问题。
+ * 通过 declarativeNetRequest 动态规则，精确将 Origin、Referer、Cookie 补全为官方标准标头。
+ */
+let isSyncingRules = false;
+async function syncCampusDirectNetRules() {
+  if (typeof chrome === 'undefined' || !chrome.declarativeNetRequest || isSyncingRules) return;
+  isSyncingRules = true;
+
+  try {
+    let cookieStr = '';
+    if (chrome.cookies && chrome.cookies.getAll) {
+      const [ieduCookies, rootCookies] = await Promise.all([
+        chrome.cookies.getAll({ domain: 'iedu.jlu.edu.cn' }).catch(() => []),
+        chrome.cookies.getAll({ domain: '.jlu.edu.cn' }).catch(() => [])
+      ]);
+
+      const cookieMap = new Map();
+      for (const c of [...rootCookies, ...ieduCookies]) {
+        cookieMap.set(c.name, c.value);
+        if (c.sameSite !== 'no_restriction' && c.name && (c.name.includes('SESSION') || c.name === '_WEU' || c.name === 'route' || c.name === 'THEME' || c.name === 'EMAP_LANG')) {
+          try {
+            chrome.cookies.set({
+              url: 'https://iedu.jlu.edu.cn',
+              name: c.name,
+              value: c.value,
+              domain: c.domain,
+              path: c.path || '/',
+              secure: true,
+              httpOnly: c.httpOnly,
+              sameSite: 'no_restriction'
+            }).catch(() => {});
+          } catch (e) {}
+        }
+      }
+
+      cookieStr = Array.from(cookieMap.entries())
+        .map(([k, v]) => `${k}=${v}`)
+        .join('; ');
+    }
+
+    const ieduHeaders = [
+      { header: 'Origin', operation: 'set', value: 'https://iedu.jlu.edu.cn' },
+      { header: 'Referer', operation: 'set', value: 'https://iedu.jlu.edu.cn/jwapp/sys/kxjas/*default/index.do?THEME=purple&EMAP_LANG=en' },
+      { header: 'X-Requested-With', operation: 'set', value: 'XMLHttpRequest' }
+    ];
+
+    if (cookieStr) {
+      ieduHeaders.push({ header: 'Cookie', operation: 'set', value: cookieStr });
+    }
+
+    await chrome.declarativeNetRequest.updateDynamicRules({
+      removeRuleIds: [1001, 1002],
+      addRules: [
+        {
+          id: 1001,
+          priority: 10,
+          action: {
+            type: 'modifyHeaders',
+            requestHeaders: ieduHeaders
+          },
+          condition: {
+            urlFilter: '||iedu.jlu.edu.cn/jwapp/',
+            resourceTypes: ['xmlhttprequest', 'main_frame', 'sub_frame']
+          }
+        },
+        {
+          id: 1002,
+          priority: 10,
+          action: {
+            type: 'modifyHeaders',
+            requestHeaders: [
+              { header: 'Origin', operation: 'set', value: 'https://vpn.jlu.edu.cn' },
+              { header: 'Referer', operation: 'set', value: CHANNELS.WEBVPN.referer },
+              { header: 'X-Requested-With', operation: 'set', value: 'XMLHttpRequest' }
+            ]
+          },
+          condition: {
+            urlFilter: '||vpn.jlu.edu.cn/',
+            resourceTypes: ['xmlhttprequest', 'main_frame', 'sub_frame']
+          }
+        }
+      ]
+    });
+  } catch (err) {
+    console.warn('[need_more_jlu] syncCampusDirectNetRules 异常:', err);
+  } finally {
+    isSyncingRules = false;
+  }
+}
+
+if (typeof chrome !== 'undefined' && chrome.cookies && chrome.cookies.onChanged) {
+  chrome.cookies.onChanged.addListener((changeInfo) => {
+    if (changeInfo.cookie && (changeInfo.cookie.domain.includes('jlu.edu.cn'))) {
+      syncCampusDirectNetRules();
+    }
+  });
+}
+
+syncCampusDirectNetRules();
+
+/**
  * 测试直连 OA 验证校园网可达性
  */
 async function checkOaReachability() {
@@ -112,8 +215,39 @@ async function checkTimetableReachability(channelKey) {
   const endpoint = CHANNELS[channelKey];
   if (!endpoint) return { reachable: false, authenticated: false, error: 'NO_ENDPOINT' };
 
+  await syncCampusDirectNetRules();
+
   try {
+    const campusCode = DEFAULT_CAMPUS_CODE;
+    const buildingCode = DEFAULT_BUILDINGS;
+    const roomTypes = ALL_ROOM_TYPES_CODE;
+    const queryDate = getLocalDateString();
+
+    const querySetting = [
+      { name: "XXXQDM", caption: "学校校区", linkOpt: "AND", builderList: "cbl_m_List", builder: "m_value_equal", value: campusCode },
+      { name: "JXLDM", caption: "教学楼", linkOpt: "AND", builderList: "cbl_m_List", builder: "m_value_equal", value: buildingCode },
+      { name: "JASLXDM", caption: "教室类型", linkOpt: "AND", builderList: "cbl_m_List", builder: "m_value_equal", value: roomTypes },
+      { name: "KXRQ", caption: "空闲日期", linkOpt: "AND", builderList: "cbl_Other", builder: "equal", value: queryDate },
+      { name: "KXJC", caption: "空闲节次", builder: "lessEqual", linkOpt: "AND", builderList: "cbl_Other", value: "1" },
+      { name: "KXJC", caption: "空闲节次", linkOpt: "AND", builderList: "cbl_String", builder: "moreEqual", value: "1" },
+      { name: "XXXQDM", value: campusCode, linkOpt: "AND", builder: "m_value_equal" },
+      { name: "JXLDM", value: buildingCode, linkOpt: "AND", builder: "m_value_equal" },
+      { name: "JASLXDM", value: roomTypes, linkOpt: "AND", builder: "m_value_equal" },
+      { name: "KXRQ", value: queryDate, linkOpt: "AND", builder: "equal" },
+      { name: "JSJC", value: "1", linkOpt: "AND", builder: "equal" },
+      { name: "KXJC", value: "1", linkOpt: "AND", builder: "equal" },
+      { name: "KSJC", value: "1", linkOpt: "AND", builder: "equal" }
+    ];
+
     const params = new URLSearchParams();
+    params.append('XXXQDM', campusCode);
+    params.append('JXLDM', buildingCode);
+    params.append('JASLXDM', roomTypes);
+    params.append('KXRQ', queryDate);
+    params.append('KSJC', '1');
+    params.append('JSJC', '1');
+    params.append('KXJC', '1');
+    params.append('querySetting', JSON.stringify(querySetting));
     params.append('pageSize', '1');
     params.append('pageNumber', '1');
 
@@ -474,6 +608,7 @@ async function handleFetchClassrooms(payload = {}) {
   const endpoint = CHANNELS[channelKey];
 
   try {
+    await syncCampusDirectNetRules();
     const resp = await fetchWithTimeout(endpoint.apiUrl, {
       method: 'POST',
       credentials: 'include',

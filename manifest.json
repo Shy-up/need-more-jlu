@@ -25,7 +25,8 @@
     "storage",
     "unlimitedStorage",
     "activeTab",
-    "cookies"
+    "cookies",
+    "declarativeNetRequest"
   ],
   "host_permissions": [
     "*://oa.jlu.edu.cn/*",
