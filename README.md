@@ -1,11 +1,15 @@
 # need_more_jlu - 吉大工具箱 - 校园网实用增强
 
-> 更适合吉大学生体质的吉大官网增强 Chrome 扩展程序（Manifest V3 架构）
+> 更适合吉大学生体质的吉大官网增强 Chrome / Edge 扩展程序（Manifest V3 架构）
 
+[![Edge Add-ons](https://img.shields.io/badge/Edge%20Add--ons-v1.0.0-blue?logo=microsoft-edge)](https://microsoftedge.microsoft.com/addons/detail/need_more_jlu-jlu-campu/cjgdpenommkljoeiebahakjpgcmdlmmn)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Manifest V3](https://img.shields.io/badge/Manifest-V3-success.svg)](https://developer.chrome.com/docs/extensions/mv3/intro/)
 [![Privacy Policy](https://img.shields.io/badge/Privacy-Policy-orange.svg)](PRIVACY.md)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/Shy-up/need-more-jlu/pulls)
+[![Contributing](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+
+### 🚀 官方商店已上架（推荐一键安装）：
+👉 **[need_more_jlu - JLU Campus Utility Toolkit - Microsoft Edge Addons](https://microsoftedge.microsoft.com/addons/detail/need_more_jlu-jlu-campu/cjgdpenommkljoeiebahakjpgcmdlmmn)**
 
 ---
 
@@ -63,81 +67,38 @@
 
 ## 🛠️ 安装与使用
 
-如果你从未使用过 GitHub 或 Chrome 插件，请按以下 4 步操作：
+### 方式一：官方扩展商店一键安装（推荐，自动更新）
 
-1. **下载项目**：点击本页面右上角绿色的 **`Code`** 按钮，选择 **`Download ZIP`**，下载后解压到本地电脑任意文件夹（例如解压到桌面）。
-2. **打开扩展管理页**：在 Chrome / Edge 浏览器地址栏输入：
-   ```text
-   chrome://extensions/
-   ```
-3. **开启开发者模式**：打开右上角 **「开发者模式」** 开关。
-4. **加载插件**：点击左上角 **「加载已解压的扩展程序」**，选中解压出的 `need_more_jlu` 文件夹即可。
-5. **固定图标**：点击浏览器右上角的拼图图标（扩展程序），找到 `need_more_jlu` 并点击图钉固定在工具栏。
+本项目已正式上架微软官方扩展商店，支持一键安装并自动静默更新：
+
+👉 **[Microsoft Edge Add-ons 官方商店下载安装](https://microsoftedge.microsoft.com/addons/detail/need_more_jlu-jlu-campu/cjgdpenommkljoeiebahakjpgcmdlmmn)**
+
+> 💡 **提示**：
+> * **Edge 浏览器**：访问上述链接后，点击右上角 **「获取」** 即可一键安装。
+> * **Chrome 浏览器**：Chrome 同样支持直接安装 Edge 扩展。打开链接后若顶部提示权限，点击「允许来自其他应用商店的扩展」，随后点击「添加至 Chrome」即可一键安装。
+
+---
+
+### 方式二：开发者模式手动加载（源码/离线安装）
+
+如果你想使用未发布的最新开发版或自行修改代码，请按以下步骤手动加载：
+
+1. **下载项目**：点击本页面右上角绿色的 **`Code`** 按钮，选择 **`Download ZIP`**，下载后解压到本地电脑（例如解压到桌面）。
+2. **打开扩展管理页**：
+   * **Chrome 浏览器**：在地址栏输入并回车：`chrome://extensions/`
+   * **Edge 浏览器**：在地址栏输入并回车：`edge://extensions/`
+3. **开启开发者模式**：打开页面中的 **「开发者模式」** 开关（Chrome 在右上角，Edge 在左下角）。
+4. **加载插件**：点击 **「加载已解压的扩展程序」**，选中解压出的 `need_more_jlu` 文件夹即可。
+5. **固定图标**：点击浏览器右上角的拼图图标（扩展程序），找到 `need_more_jlu` 并点击图钉固定在工具栏，方便随时点击。
 
 ---
 
 ## 🤝 参与贡献
 
-你可以通过提交推荐自习楼栋、校正教室数据、反馈使用体验等方式帮助全校同学。
+欢迎通过提交推荐自习楼栋、校正教室数据、反馈使用体验等方式帮助全校同学！  
+推荐使用 AI / 个人 Agent（如 GitHub Copilot、Claude、ChatGPT）结对协同开发。
 
-推荐使用AI/个人Agent，提供提示词例如:
-```plaintext
-
-根据仓库地址：https://github.com/Shy-up/need-more-jlu
-
-带我一起 [规范增加我的自习教学楼推荐:xxx/(你的需求)]
-
-完成后带我/帮我提交PR
-```
-
-
-### 方式一：新手极简网页端提交（无需安装 Git，直接在浏览器修改）
-
-最推荐贡献的内容：**完善各校区教学楼的自习推荐与体验评价**！
-
-1. 打开配置文件页面：[`data/recommendations.json`](https://github.com/Shy-up/need-more-jlu/blob/main/data/recommendations.json)；
-2. 点击文件右上角的 **铅笔小图标（Edit this file）**；
-3. 在 `recommendations` 数组中，参考已有格式添加或修改你想推荐的楼栋及评价：
-   ```json
-   {
-     "campusCode": "02",
-     "buildingCode": "65",
-     "buildingName": "南岭-逸夫楼",
-     "reason": "教室非常多"
-   }
-   ```
-   > 💡 楼栋代码可在 [`data/campuses.json`](data/campuses.json) 中查阅对应校区的 `buildingCode`。
-4. 滑到页面最下方，选择 **`Create a new branch for this commit and start a pull request`**；
-5. 点击绿色的 **`Propose changes`**，再点击 **`Create pull request`** 发起提交，管理员审核后即可并入主干！
-
----
-
-### 方式二：开发者本地代码贡献流程
-
-如果你熟悉前端开发（原生 HTML/CSS/ESM）：
-
-1. **Fork** 本仓库到你的个人账号；
-2. 克隆到本地开发环境：
-   ```bash
-   git clone https://github.com/<你的GitHub用户名>/need-more-jlu.git
-   cd need-more-jlu
-   ```
-3. 创建新的功能分支：
-   ```bash
-   git checkout -b feat/add-some-feature
-   ```
-4. 本地启动无依赖极简测试服务器（可选）：
-   ```bash
-   node scripts/serve.js
-   ```
-   在浏览器加载本地扩展并进行调试测试；
-5. 提交修改并推送到你的远程分支：
-   ```bash
-   git add .
-   git commit -m "feat: 你的改动说明"
-   git push origin feat/add-some-feature
-   ```
-6. 回到 GitHub 仓库页面，点击 **`Compare & pull request`** 提交 PR 并简要说明修改内容。
+👉 完整指引请查看：**[参与贡献指南 (CONTRIBUTING.md)](CONTRIBUTING.md)**
 
 ---
 
@@ -185,21 +146,10 @@ need_more_jlu/
 
 ---
 
-## 🧪 真实环境可用性测试进度
+## 🧪 真实环境可用性实测
 
-欢迎各校区同学实测并提交反馈勾选：
-
-- [x] 校外 WebVPN 访问（长春 - 移动）
-- [x] 南岭校区实测
-- [ ] 前卫校区实测
-- [ ] 新民校区实测
-- [ ] 朝阳校区实测
-- [ ] 南湖校区实测
-- [ ] 和平校区实测
-
----
-
-
+扩展已在长春移动 WebVPN 及南岭校区实测通过。各校区实测状态矩阵与反馈指引请参阅：  
+👉 **[可用性实测进度与反馈 (TESTING.md)](TESTING.md)**
 
 ---
 

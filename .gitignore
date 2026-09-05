@@ -1,6 +1,7 @@
 # 编译/打包产物
 *.zip
 *.crx
+*.sha256
 dist/
 build/
 release/

@@ -53,4 +53,17 @@ foreach ($item in $includeItems) {
 $zip.Dispose()
 
 $zipInfo = Get-Item $distZip
+$fileHash = (Get-FileHash -Path $distZip -Algorithm SHA256).Hash
+$shaFile = "$distZip.sha256"
+"$fileHash  $distZip" | Set-Content -Path $shaFile -Encoding utf8
+
 Write-Host " Successfully created $distZip ($([math]::Round($zipInfo.Length / 1MB, 2)) MB / $($zipInfo.Length) bytes)"
+Write-Host " SHA256: $fileHash"
+
+# Export to GitHub Actions environment if running in CI
+if ($env:GITHUB_OUTPUT) {
+    "zip_name=$distZip" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+    "zip_path=$distZip" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+    "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+    "sha256=$fileHash" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+}
