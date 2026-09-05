@@ -54,7 +54,9 @@
       "resources": [
         "dashboard/*",
         "icons/*",
-        "data/*"
+        "data/*",
+        "assets/*",
+        "config/*"
       ],
       "matches": [
         "<all_urls>"
@@ -62,6 +64,7 @@
     }
   ],
   "background": {
-    "service_worker": "background/service_worker.js"
+    "service_worker": "background/service_worker.js",
+    "type": "module"
   }
 }

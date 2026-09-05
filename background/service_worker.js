@@ -7,6 +7,16 @@
  * 4. 校园网下若教务系统未登录/无权限，精准拦截 UNAUTHENTICATED，绝不回退至不可达的 WebVPN 导致超时。
  */
 
+import {
+  DEFAULT_TIMEOUT_MS,
+  PROBE_TIMEOUT_MS,
+  PROBE_CACHE_TTL_MS,
+  CHANNELS,
+  ALL_ROOM_TYPES_CODE,
+  DEFAULT_CAMPUS_CODE,
+  DEFAULT_BUILDINGS
+} from '../config/constants.js';
+
 chrome.runtime.onInstalled.addListener(() => {
   console.log('[need_more_jlu] 扩展已安装或已更新');
   chrome.storage.local.get(['nmj_settings'], (res) => {
@@ -26,8 +36,6 @@ chrome.runtime.onInstalled.addListener(() => {
 // ============================================================================
 // 1. 全局网络超时配置与包装工具 (严格 5 秒超时)
 // ============================================================================
-
-const DEFAULT_TIMEOUT_MS = 5000;
 
 async function fetchWithTimeout(resource, options = {}, timeoutMs = DEFAULT_TIMEOUT_MS) {
   const controller = new AbortController();
@@ -55,35 +63,8 @@ async function fetchWithTimeout(resource, options = {}, timeoutMs = DEFAULT_TIME
 // 2. 双通道定义与可达性并行探测引擎
 // ============================================================================
 
-const WEBVPN_HASH = '/https/48714f71342f7a336d582f7e2857373756c9770f46c0c2b0ff87560d5a42f1';
-const OA_WEBVPN_HASH = '/https/48714f71342f7a336d582f7e2857373750cd3d1004df80a0b5971c1b1a';
-
-const CHANNELS = {
-  DIRECT: {
-    id: 'DIRECT',
-    name: '校园网直连',
-    probeUrl: 'https://oa.jlu.edu.cn/defaultroot/PortalInformation!jldxList.action?channelId=179577',
-    apiUrl: 'https://iedu.jlu.edu.cn/jwapp/sys/kxjas/modules/kxjscx/cxkxjs.do',
-    referer: 'https://iedu.jlu.edu.cn/jwapp/sys/kxjas/*default/index.do?THEME=purple&EMAP_LANG=en',
-    origin: 'https://iedu.jlu.edu.cn',
-    oaUrl: 'https://oa.jlu.edu.cn/defaultroot/PortalInformation!jldxList.action?channelId=179577',
-    authUrl: 'https://cas.jlu.edu.cn/tpass/login?service=https%3A%2F%2Fiedu.jlu.edu.cn%2Fjwapp%2Fsys%2Fkxjas%2F*default%2Findex.do%3FTHEME%3Dpurple%26EMAP_LANG%3Den'
-  },
-  WEBVPN: {
-    id: 'WEBVPN',
-    name: '校外 WebVPN 网关',
-    probeUrl: 'https://vpn.jlu.edu.cn/',
-    apiUrl: `https://vpn.jlu.edu.cn${WEBVPN_HASH}/jwapp/sys/kxjas/modules/kxjscx/cxkxjs.do?vpn-12-o2-iedu.jlu.edu.cn`,
-    referer: `https://vpn.jlu.edu.cn${WEBVPN_HASH}/jwapp/sys/kxjas/*default/index.do?THEME=purple&EMAP_LANG=en`,
-    origin: 'https://vpn.jlu.edu.cn',
-    oaUrl: `https://vpn.jlu.edu.cn${OA_WEBVPN_HASH}/defaultroot/PortalInformation!jldxList.action?channelId=179577`,
-    authUrl: 'https://vpn.jlu.edu.cn/login?cas_login=true'
-  }
-};
-
 let cachedProbeState = null;
 let lastProbeTime = 0;
-const PROBE_TTL = 30000; // 30 秒缓存探测状态
 
 /**
  * 测试直连 OA 验证校园网可达性
@@ -97,7 +78,7 @@ async function checkOaReachability() {
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'User-Agent': navigator.userAgent
       }
-    }, 4500);
+    }, PROBE_TIMEOUT_MS);
     return resp && resp.status > 0;
   } catch (e) {
     return false;
@@ -116,7 +97,7 @@ async function checkVpnReachability() {
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'User-Agent': navigator.userAgent
       }
-    }, 4500);
+    }, PROBE_TIMEOUT_MS);
     return resp && resp.status > 0;
   } catch (e) {
     return false;
@@ -131,7 +112,7 @@ async function checkVpnReachability() {
  */
 async function probeChannels(forceRefresh = false) {
   const now = Date.now();
-  if (!forceRefresh && cachedProbeState && (now - lastProbeTime < PROBE_TTL)) {
+  if (!forceRefresh && cachedProbeState && (now - lastProbeTime < PROBE_CACHE_TTL_MS)) {
     return cachedProbeState;
   }
 
@@ -268,9 +249,7 @@ async function ensureJluSessionWarmup(selectedChannel) {
   lastWarmupTime = now;
 
   const targetCh = CHANNELS[selectedChannel] || CHANNELS.DIRECT;
-  const warmupUrl = (selectedChannel === 'DIRECT')
-    ? 'https://iedu.jlu.edu.cn/jwapp/sys/kxjas/*default/index.do?THEME=purple&EMAP_LANG=en'
-    : `https://vpn.jlu.edu.cn${WEBVPN_HASH}/jwapp/sys/kxjas/*default/index.do?THEME=purple&EMAP_LANG=en`;
+  const warmupUrl = targetCh.referer;
 
   try {
     await fetchWithTimeout(warmupUrl, {
@@ -280,7 +259,7 @@ async function ensureJluSessionWarmup(selectedChannel) {
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'User-Agent': navigator.userAgent
       }
-    }, 4500);
+    }, PROBE_TIMEOUT_MS);
   } catch (e) {}
 }
 
@@ -290,8 +269,8 @@ async function ensureJluSessionWarmup(selectedChannel) {
 
 async function handleFetchClassrooms(payload = {}) {
   const {
-    campusCode = '02',
-    buildingCode = '65,82,73',
+    campusCode = DEFAULT_CAMPUS_CODE,
+    buildingCode = DEFAULT_BUILDINGS,
     date,
     startSection = 1,
     endSection = 1,
@@ -300,11 +279,11 @@ async function handleFetchClassrooms(payload = {}) {
   } = payload;
 
   const finalBuildingCode = (!buildingCode || buildingCode === 'yifu') 
-    ? '65,82,73' 
+    ? DEFAULT_BUILDINGS 
     : buildingCode;
 
   const queryDate = date || getLocalDateString();
-  const roomTypes = '03,02,01,04,05,06,13,08,09,10,11,12,07';
+  const roomTypes = ALL_ROOM_TYPES_CODE;
 
   const querySetting = [
     { name: "XXXQDM", caption: "学校校区", linkOpt: "AND", builderList: "cbl_m_List", builder: "m_value_equal", value: campusCode },

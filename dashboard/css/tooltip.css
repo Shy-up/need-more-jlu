@@ -1,0 +1,196 @@
+﻿/* ==========================================================================
+   Room Hover Tooltip Card (Theme Responsive & Segmented Slots)
+   ========================================================================== */
+.room-hover-card {
+  position: absolute;
+  width: 330px;
+  background: rgba(15, 23, 42, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6), 0 0 24px rgba(56, 189, 248, 0.25);
+  z-index: 1000;
+  pointer-events: none;
+  animation: card-pop 0.18s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* Light Theme Adaptation for Hover Card */
+body.theme-light .room-hover-card {
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(0, 71, 157, 0.28);
+  box-shadow: 0 14px 36px rgba(0, 59, 122, 0.16), 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+body.theme-light .card-room-title {
+  color: #0f172a;
+}
+
+body.theme-light .card-schedule-summary {
+  color: #334155;
+}
+
+body.theme-light .timeline-title {
+  color: #64748b;
+}
+
+body.theme-light .timeline-bar {
+  background: #e2e8f0;
+}
+
+@keyframes card-pop {
+  from { opacity: 0; transform: scale(0.94) translateY(4px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.card-inner {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.card-room-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.card-room-badge {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent-cyan);
+  background: rgba(6, 182, 212, 0.15);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.card-status-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid var(--color-free-border);
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 700;
+  color: #34d399;
+  line-height: 1.4;
+}
+
+.card-status-banner.warn {
+  background: rgba(245, 158, 11, 0.15);
+  border-color: var(--color-partial-border);
+  color: #fbbf24;
+}
+
+.card-status-banner.busy {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: var(--color-busy-border);
+  color: #f87171;
+}
+
+/* Timeline Hot Bar with Morning / Afternoon / Evening Segments */
+.card-timeline-box {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.timeline-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.timeline-bar {
+  display: flex;
+  align-items: stretch;
+  gap: 3px;
+  height: 26px;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 3px;
+  border-radius: 6px;
+}
+
+.timeline-slot-dot {
+  flex: 1;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  color: #0b0f17;
+  transition: transform 0.15s ease;
+}
+
+/* Isolate every 4 slots (after slot 4 and slot 8) to separate Morning, Afternoon, Evening */
+.timeline-slot-dot:nth-child(4),
+.timeline-slot-dot:nth-child(8) {
+  margin-right: 9px;
+  position: relative;
+}
+
+.timeline-slot-dot:nth-child(4)::after,
+.timeline-slot-dot:nth-child(8)::after {
+  content: '';
+  position: absolute;
+  right: -5px;
+  top: 3px;
+  bottom: 3px;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+body.theme-light .timeline-slot-dot:nth-child(4)::after,
+body.theme-light .timeline-slot-dot:nth-child(8)::after {
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.timeline-slot-dot.free {
+  background: var(--color-free);
+}
+
+.timeline-slot-dot.busy {
+  background: var(--color-busy);
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.timeline-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+  color: var(--text-muted);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Real Schedule Summary */
+.card-schedule-summary {
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+}
+
+.cabin-count-badge {
+  font-size: 12px;
+  font-weight: 600;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+

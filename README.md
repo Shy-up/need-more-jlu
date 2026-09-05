@@ -70,21 +70,44 @@
 
 ```
 need_more_jlu/
-├── manifest.json              # Chrome Manifest V3 配置
+├── manifest.json              # Chrome Manifest V3 扩展清单（配置模块化 Worker 与资源路径）
+├── config/
+│   └── constants.js           # 全局网络超时、WebVPN Hash 路由与 1~12 节作息时刻表常量
+├── assets/
+│   └── sleepy.gif             # 吉大自习与状态专属动图资源
+├── scripts/
+│   ├── serve.js               # 本地零依赖极简 HTTP 开发测试服务器
+│   └── generate_icons.ps1     # 扩展图标批量生成脚本
 ├── data/
 │   ├── campuses.json          # 全校校区与教学楼官方基础数据（全量 128 栋）
 │   └── recommendations.json   # 各校区自习推荐楼栋与独家体验评价配置（社区贡献入口）
-├── dashboard/
-│   ├── index.html             # 自习直达仪表盘页面
-│   ├── dashboard.css          # 现代化空间舱位图样式
-│   ├── dashboard.js           # 空间排课聚合、连坐指数与时间状态驱动
-│   └── serve.js               # 本地轻量调试服务
+├── dashboard/                 # 新一代吉大自习直达仪表盘（纯原生 ESM 架构）
+│   ├── index.html             # 仪表盘骨架
+│   ├── dashboard.css          # 模块化样式聚合入口 (@import)
+│   ├── dashboard.js           # 兼容 ESM 入口转发
+│   ├── css/
+│   │   ├── base.css           # 全局变量、主题与重置样式
+│   │   ├── controls.css       # 顶栏时钟感知、日历选择器与节次矩阵
+│   │   ├── macro.css          # 宏观楼栋卡片与推荐指南
+│   │   ├── cabin_map.css      # 微观楼层座舱图（阶梯尺寸与状态）
+│   │   ├── tooltip.css        # 教室悬浮详情卡与时段微型时间轴
+│   │   ├── barrier_modals.css # 真实数据阻断屏障、二维码登录与壁纸设置
+│   │   └── empty_state.css    # 差异化空状态（超时/无权限/筛选过滤/全满）
+│   └── js/
+│       ├── main.js            # 主控制器编排与全局事件流
+│       ├── timeline_engine.js # 1~12 节全天排课切片重构、时钟感知与连坐指数
+│       ├── data_service.js    # 双通道探测与教务真实数据拉取服务
+│       ├── render_macro.js    # 教学楼宏观总览渲染
+│       ├── render_cabin.js    # 微观座舱图渲染
+│       ├── tooltip.js         # 悬浮提示卡控制器
+│       ├── auth_barrier.js    # 真实数据屏障与扫码登录生命周期
+│       └── wallpaper_theme.js # 深浅主题与毛玻璃壁纸系统
 ├── content/
 │   ├── inject.js              # OA 页面点击增强、阅读历史统计与浮层
 │   ├── drawer.js              # 原网页保真侧边滑出抽屉与附件解析
 │   └── inject.css             # 抽屉与阅读历史浮层样式
 ├── background/
-│   └── service_worker.js      # 教务系统 (cxkxjs.do) 异步数据代理与双通道探测
+│   └── service_worker.js      # 教务系统异步数据代理与双通道探测（ESM 模块）
 ├── popup/
 │   ├── popup.html             # 浏览器右上角快捷入口
 │   ├── popup.css
