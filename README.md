@@ -1,6 +1,6 @@
 # need_more_jlu - 吉大工具箱 - 校园网实用增强
 
-> 更适合吉大学生体质的吉大官网增强 Chrome 扩展程序（Manifest V3 原生架构）
+> 更适合吉大学生体质的吉大官网增强 Chrome 扩展程序（Manifest V3 架构）
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Manifest V3](https://img.shields.io/badge/Manifest-V3-success.svg)](https://developer.chrome.com/docs/extensions/mv3/intro/)
@@ -19,6 +19,7 @@
 4. 没人关心你会对官网干什么
 5. 没有现代元素的情况下加载仍然慢于现代 UI
 
+*以下内容主要使用AI生成*
 ---
 
 ## 🌟 效果展示与核心功能
@@ -58,7 +59,7 @@
 
 ---
 
-## 🛠️ 安装与使用（新手教程）
+## 🛠️ 安装与使用
 
 如果你从未使用过 GitHub 或 Chrome 插件，请按以下 4 步操作：
 
@@ -73,7 +74,7 @@
 
 ---
 
-## 🤝 参与贡献 (Contribution)
+## 🤝 参与贡献
 
 你可以通过提交推荐自习楼栋、校正教室数据、反馈使用体验等方式帮助全校同学。
 
@@ -138,7 +139,7 @@
 
 ---
 
-## 🐛 反馈与提问 (Issue 指南)
+## 🐛 反馈与提问
 
 如果你在使用中遇到了 Bug、闪退、数据拉取失败，或者有新功能想法，欢迎提出 Issue。
 
