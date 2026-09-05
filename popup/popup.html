@@ -52,6 +52,38 @@
           <div class="action-mini-title">教务大厅</div>
           <div class="action-mini-desc">微服务门户</div>
         </button>
+
+        <!-- 2.4 Library Portal -->
+        <button class="action-mini-card" id="btn-open-lib" title="打开吉林大学图书馆 (lib.jlu.edu.cn)">
+          <div class="action-mini-icon">📚</div>
+          <div class="action-mini-title">校图书馆</div>
+          <div class="action-mini-desc">馆藏资源</div>
+        </button>
+      </div>
+
+      <!-- 3. Campus Sites Expandable Directory -->
+      <div class="portal-accordion" id="portalAccordion">
+        <div class="accordion-header" id="btnToggleAccordion" title="点击展开/收起常用校内网站导航">
+          <div class="accordion-title-box">
+            <span class="accordion-icon">🧭</span>
+            <span class="accordion-title">其它常用校内站点</span>
+            <span class="portal-count-badge" id="portalCountBadge">22</span>
+          </div>
+          <span class="accordion-arrow" id="accordionArrow">▾</span>
+        </div>
+
+        <div class="accordion-body" id="accordionBody">
+          <div class="search-box-wrapper">
+            <input type="text" id="portalSearchInput" class="portal-search-input" placeholder="搜索网站名称或功能..."
+              autocomplete="off" />
+          </div>
+          <div class="portal-list-scroll" id="portalList">
+            <!-- 动态渲染网站卡片 -->
+          </div>
+          <div class="easter-egg-container" id="easterEggWrapper" title="点击体验百度吉大">
+            <span class="easter-egg-text" id="easterEggText">话说，直接百度会不会更快...?</span>
+          </div>
+        </div>
       </div>
     </div>
 
