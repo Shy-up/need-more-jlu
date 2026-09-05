@@ -86,13 +86,13 @@ export function startEmbeddedQrLoginFlow(onSuccess) {
   }
 
   const openPopup = (authUrl) => {
-    const targetUrl = authUrl || 'https://cas.jlu.edu.cn/tpass/login?service=https%3A%2F%2Fiedu.jlu.edu.cn%2Fjwapp%2Fsys%2Fkxjas%2F*default%2Findex.do%3FTHEME%3Dpurple%26EMAP_LANG%3Den';
+    const targetUrl = authUrl || 'https://iedu.jlu.edu.cn/jwapp/sys/kxjas/*default/index.do?THEME=purple&EMAP_LANG=en#/kxjscx';
     if (statusText) {
       statusText.innerHTML = '<span class="qr-status-dot pulse"></span> 正在等待登录确认... 取得真实排课数据后将自动关闭并进入仪表盘';
     }
 
-    const width = 520;
-    const height = 650;
+    const width = 760;
+    const height = 720;
     const left = Math.max(0, Math.round(window.screenX + (window.outerWidth - width) / 2));
     const top = Math.max(0, Math.round(window.screenY + (window.outerHeight - height) / 2));
 
@@ -138,24 +138,30 @@ export function showHardFailBarrier(errorResult, state = {}, currentCampus = nul
   const diagTextEl = document.getElementById('barrierDiagnosticsText');
   const iconEl = barrierEl.querySelector('.barrier-icon-large');
 
-  const isUnauth = (errorResult?.error === 'UNAUTHENTICATED');
+  const isUnauth = (errorResult?.error === 'UNAUTHENTICATED' || (errorResult?.channel === 'DIRECT' && !isDualFail));
   const isTimeout = (errorResult?.error === 'TIMEOUT');
   const qrBtn = document.getElementById('btnToggleEmbeddedQr');
   const retryBtn = document.getElementById('btnRetryRealFetch');
 
   const isDualFail = (errorResult?.error === 'DUAL_CHANNELS_UNREACHABLE');
 
-  if (qrBtn) qrBtn.style.display = isUnauth ? 'inline-flex' : 'none';
+  if (qrBtn) {
+    qrBtn.style.display = isUnauth ? 'inline-flex' : 'none';
+    if (errorResult?.channel === 'DIRECT') {
+      qrBtn.textContent = '🔑 校园网教务认证登录 (直连认证后自动刷新)';
+    } else {
+      qrBtn.textContent = '📱 微信扫码 / WebVPN 登录 (登录后自动刷新)';
+    }
+  }
   if (retryBtn) retryBtn.style.display = 'inline-flex';
 
   if (isUnauth) {
     if (iconEl) iconEl.textContent = '🔒';
-    if (titleEl) titleEl.textContent = '吉大教务未登录认证';
+    if (titleEl) titleEl.textContent = errorResult?.channel === 'DIRECT' ? '校园网教务未登录认证' : '吉大教务未登录认证';
     if (subtitleEl) {
-      subtitleEl.innerHTML = `
-        校园网已连通，但课表数据库需要统一身份认证授权。<br>
-        点击下方按钮完成登录认证，认证成功后<strong>本页面将全自动检测并刷新</strong>。
-      `;
+      subtitleEl.innerHTML = errorResult?.channel === 'DIRECT'
+        ? `校园网直连已连通，但课表数据库需要统一身份认证授权。<br>点击下方按钮通过官方直连通道完成认证，认证成功后<strong>本页面将全自动检测并呈现排课</strong>。`
+        : `WebVPN 会话未登录或已过期。<br>点击下方按钮完成登录认证，认证成功后<strong>本页面将全自动检测并呈现排课</strong>。`;
     }
   } else if (isTimeout) {
     if (iconEl) iconEl.textContent = '⏱️';

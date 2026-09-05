@@ -142,7 +142,7 @@ async function checkTimetableReachability(channelKey) {
 
     // 2. 检查 HTTP 状态码
     if (!resp.ok) {
-      if (resp.status === 401 || resp.status === 403 || resp.status === 302) {
+      if (resp.status === 401 || resp.status === 403 || resp.status === 302 || channelKey === 'DIRECT') {
         return {
           reachable: true,
           authenticated: false,
@@ -183,10 +183,10 @@ async function checkTimetableReachability(channelKey) {
       json = JSON.parse(text);
     } catch (e) {
       return {
-        reachable: false,
+        reachable: channelKey === 'DIRECT',
         authenticated: false,
-        error: 'PARSE_ERROR',
-        message: '课表数据库返回非标准响应'
+        error: channelKey === 'DIRECT' ? 'UNAUTHENTICATED' : 'PARSE_ERROR',
+        message: channelKey === 'DIRECT' ? '校园网已连通，但课表数据库未登录，请完成统一身份认证' : '课表数据库返回非标准响应'
       };
     }
 
@@ -202,11 +202,20 @@ async function checkTimetableReachability(channelKey) {
     return {
       reachable: true,
       authenticated: false,
-      error: 'NO_DATA',
-      message: '课表数据库未返回有效数据结构'
+      error: channelKey === 'DIRECT' ? 'UNAUTHENTICATED' : 'NO_DATA',
+      message: channelKey === 'DIRECT' ? '校园网已连通，但课表数据库未登录，请完成统一身份认证' : '课表数据库未返回有效数据结构'
     };
   } catch (err) {
     const isTimeout = (err.code === 'TIMEOUT' || err.name === 'TimeoutError');
+    // 关键：处于校园网时，OA 已经连通，如果请求课表数据库报错（例如 CAS 跨域重定向异常拦截或未登录），直接判定为 UNAUTHENTICATED，坚决提示直连认证！
+    if (channelKey === 'DIRECT') {
+      return {
+        reachable: true,
+        authenticated: false,
+        error: 'UNAUTHENTICATED',
+        message: '校园网已连通，但课表数据库未登录，请完成统一身份认证'
+      };
+    }
     return {
       reachable: false,
       authenticated: false,
@@ -570,56 +579,14 @@ async function handleFetchClassrooms(payload = {}) {
     };
   } catch (err) {
     const isTimeout = (err.code === 'TIMEOUT' || err.name === 'TimeoutError');
-    // 如果校园网直连教务失败，且此时 WebVPN 是可用的，尝试降级到 WebVPN 一次
-    if (channelKey === 'DIRECT' && probe.vpnOk) {
-      console.warn('[need_more_jlu] 校园网直连教务接口失败，尝试安全降级至 WebVPN...');
-      try {
-        const vpnEndpoint = CHANNELS.WEBVPN;
-        const vpnResp = await fetchWithTimeout(vpnEndpoint.apiUrl, {
-          method: 'POST',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-            'X-Requested-With': 'XMLHttpRequest',
-            'Accept': 'application/json, text/javascript, */*; q=0.01',
-            'Referer': vpnEndpoint.referer,
-            'Origin': vpnEndpoint.origin
-          },
-          body: params.toString()
-        }, 5000);
-
-        if (vpnResp.ok) {
-          const vpnText = await vpnResp.text();
-          if (
-            vpnResp.redirected ||
-            (vpnResp.url && (vpnResp.url.includes('login') || vpnResp.url.includes('cas'))) ||
-            vpnResp.status === 401 || vpnResp.status === 403 || vpnResp.status === 302 ||
-            vpnText.includes('<!DOCTYPE') || 
-            vpnText.includes('Not login!') || 
-            vpnText.includes('401.png') || 
-            vpnText.includes('统一身份认证') || 
-            vpnText.includes('login')
-          ) {
-            return {
-              success: false,
-              error: 'UNAUTHENTICATED',
-              channel: 'WEBVPN',
-              message: 'WebVPN 未登录，请先登录 WebVPN'
-            };
-          }
-          const vpnJson = JSON.parse(vpnText);
-          const vpnRows = vpnJson?.datas?.cxkxjs?.rows;
-          if (Array.isArray(vpnRows)) {
-            return {
-              success: true,
-              channel: 'WEBVPN',
-              totalSize: vpnJson?.datas?.cxkxjs?.totalSize || vpnRows.length,
-              rows: vpnRows,
-              queryMeta: { campusCode, buildingCode: finalBuildingCode, date: queryDate, startSection, endSection, cleanOnly }
-            };
-          }
-        }
-      } catch (vpnErr) {}
+    // 关键：校园网直连环境下，坚决走 direct 教务，绝不回退至可能不达的 WebVPN！
+    if (channelKey === 'DIRECT') {
+      return {
+        success: false,
+        error: 'UNAUTHENTICATED',
+        channel: 'DIRECT',
+        message: '校园网直连正常，但课表数据库未登录或会话过期，请完成统一身份认证'
+      };
     }
 
     return {
@@ -651,10 +618,10 @@ async function handleFetchTimeline(payload = {}) {
   }
 
   // 关键：在 OA 可达时也必须确保课表数据库可达才认为"课表可达"，否则直接阻断并提示登录！
-  if (probe.timetableOk === false && probe.authStatus === 'UNAUTHENTICATED') {
+  if (probe.timetableOk === false) {
     return {
       success: false,
-      error: 'UNAUTHENTICATED',
+      error: (probe.selectedChannel === 'DIRECT' || probe.authStatus === 'UNAUTHENTICATED') ? 'UNAUTHENTICATED' : (probe.authStatus || 'NETWORK_ERROR'),
       channel: probe.selectedChannel,
       message: probe.authMessage || (probe.selectedChannel === 'DIRECT'
         ? '校园网已连通，但课表数据库未登录，请完成统一身份认证'

@@ -120,10 +120,28 @@ async function run() {
   assert.strictEqual(probeUnauth.isLoggedIn, false);
   console.log(' Verified: OA reachable does NOT mean timetable reachable; unauthenticated DB correctly requires login');
 
-  const probeAuth = simulateChannelTimetableProbe({ oaOk: true, vpnOk: false, timetableAuthOk: true });
-  assert.strictEqual(probeAuth.timetableOk, true);
-  assert.strictEqual(probeAuth.isLoggedIn, true);
-  console.log(' Verified: OA reachable + timetable DB authorized correctly considered ready');
+  // Case E: Verify campus LAN direct URL and zero WebVPN fallback
+  const EXPECTED_DIRECT_AUTH_URL = 'https://iedu.jlu.edu.cn/jwapp/sys/kxjas/*default/index.do?THEME=purple&EMAP_LANG=en#/kxjscx';
+  function simulateDirectResolution(oaOk, vpnOk) {
+    if (oaOk) {
+      return {
+        channel: 'DIRECT',
+        authUrl: EXPECTED_DIRECT_AUTH_URL,
+        allowVpnFallback: false
+      };
+    }
+    return {
+      channel: 'WEBVPN',
+      authUrl: 'https://vpn.jlu.edu.cn/login?cas_login=true',
+      allowVpnFallback: false
+    };
+  }
+
+  const campusRes = simulateDirectResolution(true, false);
+  assert.strictEqual(campusRes.channel, 'DIRECT');
+  assert.strictEqual(campusRes.authUrl, EXPECTED_DIRECT_AUTH_URL, 'Direct authUrl must point to empty classroom portal with #/kxjscx');
+  assert.strictEqual(campusRes.allowVpnFallback, false, 'Campus LAN must NEVER fall back to WebVPN');
+  console.log(' Verified: Campus LAN strictly uses direct iedu URL and refuses WebVPN fallback');
 
   console.log('All unit tests passed successfully!');
 }

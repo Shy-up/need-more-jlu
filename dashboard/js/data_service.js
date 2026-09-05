@@ -120,8 +120,7 @@ export async function directFetchParallelTimeline(payload, currentCampus, curren
   const candidateEndpoints = [];
   if (oaOk) {
     candidateEndpoints.push(CHANNELS.DIRECT);
-  }
-  if (vpnOk) {
+  } else if (vpnOk) {
     candidateEndpoints.push(CHANNELS.WEBVPN);
   }
 
@@ -186,7 +185,14 @@ export async function directFetchParallelTimeline(payload, currentCampus, curren
       };
     }
   } catch (probeErr) {
-    // 探测异常后续在循环中重试或返回超时
+    if (primaryEndpoint && primaryEndpoint.id === 'DIRECT') {
+      return {
+        success: false,
+        error: 'UNAUTHENTICATED',
+        channel: 'DIRECT',
+        message: '校园网已连通，但课表数据库未登录，请完成统一身份认证'
+      };
+    }
   }
 
   let lastCandidateError = null;
@@ -242,7 +248,7 @@ export async function directFetchParallelTimeline(payload, currentCampus, curren
         }
 
         if (!resp.ok) {
-          if (resp.status === 401 || resp.status === 403 || resp.status === 302) {
+          if (resp.status === 401 || resp.status === 403 || resp.status === 302 || endpoint.id === 'DIRECT') {
             const err = new Error(endpoint.id === 'DIRECT' ? '校园网课表未登录' : 'WebVPN 未登录');
             err.code = 'UNAUTHENTICATED';
             throw err;
@@ -271,8 +277,8 @@ export async function directFetchParallelTimeline(payload, currentCampus, curren
         try {
           json = JSON.parse(text);
         } catch (e) {
-          const err = new Error('JSON 解析失败');
-          err.code = 'PARSE_ERROR';
+          const err = new Error(endpoint.id === 'DIRECT' ? '校园网课表未登录' : 'JSON 解析失败');
+          err.code = endpoint.id === 'DIRECT' ? 'UNAUTHENTICATED' : 'PARSE_ERROR';
           throw err;
         }
 
@@ -292,7 +298,7 @@ export async function directFetchParallelTimeline(payload, currentCampus, curren
       };
     } catch (err) {
       lastCandidateError = err;
-      if (err.code === 'UNAUTHENTICATED') {
+      if (err.code === 'UNAUTHENTICATED' || endpoint.id === 'DIRECT') {
         return {
           success: false,
           error: 'UNAUTHENTICATED',
@@ -331,8 +337,8 @@ export async function fetchTimelineData(payload, currentCampus, currentBuildings
     }
   }
 
-  // 2. 直连降级
-  if (!result || !result.success) {
+  // 2. 直连降级（仅当 background 通信未就绪或未返回任何结果时才降级）
+  if (!result) {
     result = await directFetchParallelTimeline(payload, currentCampus, currentBuildings);
   }
 

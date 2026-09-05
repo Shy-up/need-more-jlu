@@ -26,8 +26,9 @@ export const CHANNELS = {
     apiUrl: 'https://iedu.jlu.edu.cn/jwapp/sys/kxjas/modules/kxjscx/cxkxjs.do',
     referer: 'https://iedu.jlu.edu.cn/jwapp/sys/kxjas/*default/index.do?THEME=purple&EMAP_LANG=en',
     origin: 'https://iedu.jlu.edu.cn',
+    portalUrl: 'https://iedu.jlu.edu.cn/jwapp/sys/kxjas/*default/index.do?THEME=purple&EMAP_LANG=en#/kxjscx',
     oaUrl: 'https://oa.jlu.edu.cn/defaultroot/PortalInformation!jldxList.action?channelId=179577',
-    authUrl: 'https://cas.jlu.edu.cn/tpass/login?service=https%3A%2F%2Fiedu.jlu.edu.cn%2Fjwapp%2Fsys%2Fkxjas%2F*default%2Findex.do%3FTHEME%3Dpurple%26EMAP_LANG%3Den'
+    authUrl: 'https://iedu.jlu.edu.cn/jwapp/sys/kxjas/*default/index.do?THEME=purple&EMAP_LANG=en#/kxjscx'
   },
   WEBVPN: {
     id: 'WEBVPN',
