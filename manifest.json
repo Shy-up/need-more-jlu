@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "need_more_jlu - 吉大自习仪表盘与校园网实用增强",
-  "version": "2.0.0",
-  "description": "吉大新一代自习直达仪表盘（微观楼层座舱图、连坐安全感指数、空间洁癖过滤）与官方 OA 极简渐进增强工具箱。",
+  "name": "need_more_jlu - 吉大校园网实用增强",
+  "version": "1.0.0",
+  "description": "空闲教室查询，OA增强等小功能",
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",

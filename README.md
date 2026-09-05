@@ -1,9 +1,10 @@
-# need_more_jlu - 吉大工具箱：空闲教室速查 | OA增强
+# need_more_jlu - 吉大工具箱 - 校园网实用增强
 
 > 更适合吉大学生体质的吉大官网增强 Chrome 扩展程序（Manifest V3 原生架构）
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Manifest V3](https://img.shields.io/badge/Manifest-V3-success.svg)](https://developer.chrome.com/docs/extensions/mv3/intro/)
+[![Privacy Policy](https://img.shields.io/badge/Privacy-Policy-orange.svg)](PRIVACY.md)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/Shy-up/need-more-jlu/pulls)
 
 ---
@@ -197,9 +198,10 @@ need_more_jlu/
 
 ---
 
-## 📄 开源协议
+## 📄 开源协议与隐私政策
 
-本项目采用 **[MIT License](LICENSE)** 协议开源。任何人均可自由使用、学习、修改与分发，欢迎在遵守协议的前提下进行二次创作与改进。
+* **开源授权**：本项目采用 **[MIT License](LICENSE)** 协议开源。任何人均可自由使用、学习、修改与分发。
+* **隐私声明**：本项目遵循端到端隐私保护，详见 **[隐私政策 (Privacy Policy)](PRIVACY.md)**。
 
 ---
 
