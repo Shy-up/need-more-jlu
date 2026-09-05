@@ -155,43 +155,4 @@ export function initDevToolsEasterEgg() {
       setTimeout(triggerConsoleEasterEgg, 300);
     }
   });
-
-  // 3. 尺寸差异检测（控制台侧边或底边停靠时，窗口内尺寸与外尺寸会有明显落差）
-  let isCheckingResize = false;
-  const checkWindowDimensions = () => {
-    const threshold = 160;
-    const widthDiff = window.outerWidth - window.innerWidth > threshold;
-    const heightDiff = window.outerHeight - window.innerHeight > threshold;
-    if (widthDiff || heightDiff) {
-      triggerConsoleEasterEgg();
-    }
-  };
-
-  window.addEventListener('resize', () => {
-    if (!isCheckingResize) {
-      isCheckingResize = true;
-      setTimeout(() => {
-        checkWindowDimensions();
-        isCheckingResize = false;
-      }, 300);
-    }
-  });
-
-  // 4. Getter 陷阱（当控制台打开且渲染 DOM/对象时自动触发属性求值）
-  try {
-    const bait = {};
-    Object.defineProperty(bait, 'id', {
-      get: function () {
-        triggerConsoleEasterEgg();
-        return 'nmj_vibe_detected';
-      },
-      configurable: true
-    });
-    // 周期性浅触发
-    setInterval(() => {
-      console.debug(bait);
-    }, 2000);
-  } catch (_) {
-    // 静默降级
-  }
 }
