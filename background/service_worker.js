@@ -208,6 +208,68 @@ async function checkVpnReachability() {
 }
 
 /**
+ * 尝试通过已打开且已放行证书的 iedu 标签页同源发起请求：
+ * 彻底解决浏览器 Service Worker 背景请求无法继承用户在标签页内信任自签证书 (ERR_CERT_AUTHORITY_INVALID) 的机制限制。
+ */
+async function queryViaIeduTabBridge(url, params) {
+  if (typeof chrome === 'undefined' || !chrome.tabs) return null;
+
+  try {
+    const tabs = await chrome.tabs.query({ url: '*://iedu.jlu.edu.cn/*' });
+    if (!tabs || tabs.length === 0) return null;
+
+    const targetTab = tabs.find(t => t.active) || tabs[0];
+
+    const sendBridgeMessage = (tabId) => {
+      return new Promise((resolve) => {
+        chrome.tabs.sendMessage(tabId, {
+          type: 'IEDU_BRIDGE_QUERY',
+          url,
+          params
+        }, (response) => {
+          if (chrome.runtime.lastError || !response) {
+            resolve(null);
+          } else {
+            resolve(response);
+          }
+        });
+      });
+    };
+
+    let result = await sendBridgeMessage(targetTab.id);
+
+    if (!result && chrome.scripting) {
+      try {
+        await chrome.scripting.executeScript({
+          target: { tabId: targetTab.id },
+          files: ['content/iedu_bridge.js']
+        });
+        result = await sendBridgeMessage(targetTab.id);
+      } catch (injectErr) {
+        console.warn('[need_more_jlu] 动态注入 iedu_bridge.js 失败:', injectErr);
+      }
+    }
+
+    if (result && typeof result.text === 'string') {
+      return {
+        ok: result.success === true,
+        status: result.status || (result.success ? 200 : 500),
+        redirected: result.redirected || false,
+        url: result.url || url,
+        text: async () => result.text,
+        json: async () => {
+          try { return JSON.parse(result.text); } catch (e) { return null; }
+        }
+      };
+    }
+  } catch (err) {
+    console.warn('[need_more_jlu] queryViaIeduTabBridge 异常:', err);
+  }
+
+  return null;
+}
+
+/**
  * 测试课表数据库 (iedu.jlu.edu.cn / cxkxjs.do) 是否真正可达且已认证
  * OA 可达仅代表物理上处于校园网，不代表课表数据库仍可达；必须确保课表可达且无需登录才算"课表可达"。
  */
@@ -251,18 +313,25 @@ async function checkTimetableReachability(channelKey) {
     params.append('pageSize', '1');
     params.append('pageNumber', '1');
 
-    const resp = await fetchWithTimeout(endpoint.apiUrl, {
-      method: 'POST',
-      credentials: 'include',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-        'X-Requested-With': 'XMLHttpRequest',
-        'Accept': 'application/json, text/javascript, */*; q=0.01',
-        'Referer': endpoint.referer,
-        'Origin': endpoint.origin
-      },
-      body: params.toString()
-    }, PROBE_TIMEOUT_MS);
+    let resp = null;
+    if (channelKey === 'DIRECT') {
+      resp = await queryViaIeduTabBridge(endpoint.apiUrl, params.toString());
+    }
+
+    if (!resp) {
+      resp = await fetchWithTimeout(endpoint.apiUrl, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+          'X-Requested-With': 'XMLHttpRequest',
+          'Accept': 'application/json, text/javascript, */*; q=0.01',
+          'Referer': endpoint.referer,
+          'Origin': endpoint.origin
+        },
+        body: params.toString()
+      }, PROBE_TIMEOUT_MS);
+    }
 
     // 1. 检查重定向 (例如被重定向到 CAS 统一认证或 WebVPN 登录)
     if (resp.redirected || (resp.url && (resp.url.includes('login') || resp.url.includes('cas') || resp.url.includes('tpass')))) {
@@ -422,6 +491,14 @@ async function probeChannels(forceRefresh = false) {
 // ============================================================================
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.type === 'IEDU_TAB_READY') {
+    console.log('[need_more_jlu] 收到 iedu 标签页同源握手通知:', request.url);
+    cachedProbeState = null;
+    lastProbeTime = 0;
+    sendResponse({ success: true });
+    return true;
+  }
+
   if (request.type === 'PREPARE_QR_LOGIN') {
     (async () => {
       try {
@@ -609,18 +686,26 @@ async function handleFetchClassrooms(payload = {}) {
 
   try {
     await syncCampusDirectNetRules();
-    const resp = await fetchWithTimeout(endpoint.apiUrl, {
-      method: 'POST',
-      credentials: 'include',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-        'X-Requested-With': 'XMLHttpRequest',
-        'Accept': 'application/json, text/javascript, */*; q=0.01',
-        'Referer': endpoint.referer,
-        'Origin': endpoint.origin
-      },
-      body: params.toString()
-    }, 5000);
+
+    let resp = null;
+    if (channelKey === 'DIRECT') {
+      resp = await queryViaIeduTabBridge(endpoint.apiUrl, params.toString());
+    }
+
+    if (!resp) {
+      resp = await fetchWithTimeout(endpoint.apiUrl, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+          'X-Requested-With': 'XMLHttpRequest',
+          'Accept': 'application/json, text/javascript, */*; q=0.01',
+          'Referer': endpoint.referer,
+          'Origin': endpoint.origin
+        },
+        body: params.toString()
+      }, 5000);
+    }
 
     // 检查重定向 (例如被重定向到 CAS 统一认证或 WebVPN 登录)
     if (resp.redirected || (resp.url && (resp.url.includes('login') || resp.url.includes('cas') || resp.url.includes('tpass')))) {

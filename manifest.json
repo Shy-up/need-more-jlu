@@ -26,7 +26,9 @@
     "unlimitedStorage",
     "activeTab",
     "cookies",
-    "declarativeNetRequest"
+    "declarativeNetRequest",
+    "scripting",
+    "tabs"
   ],
   "host_permissions": [
     "*://oa.jlu.edu.cn/*",
@@ -35,6 +37,15 @@
     "*://*.jlu.edu.cn/*"
   ],
   "content_scripts": [
+    {
+      "matches": [
+        "*://iedu.jlu.edu.cn/*"
+      ],
+      "js": [
+        "content/iedu_bridge.js"
+      ],
+      "run_at": "document_start"
+    },
     {
       "matches": [
         "*://oa.jlu.edu.cn/*",
