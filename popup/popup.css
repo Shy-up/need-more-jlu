@@ -10,7 +10,7 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
   background-color: #0b0f17;
   color: #f1f5f9;
-  width: 330px;
+  width: 340px;
   line-height: 1.4;
 }
 
@@ -90,15 +90,54 @@ body {
   box-shadow: 0 4px 16px rgba(56, 189, 248, 0.3);
 }
 
-.action-secondary {
-  background: rgba(30, 41, 59, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.10);
+.action-row-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
 }
 
-.action-secondary:hover {
+.action-mini-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 10px 4px;
+  background: rgba(30, 41, 59, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  outline: none;
+  font-family: inherit;
+  color: #f8fafc;
+}
+
+.action-mini-card:hover {
   background: rgba(30, 41, 59, 0.85);
-  border-color: rgba(255, 255, 255, 0.22);
+  border-color: rgba(56, 189, 248, 0.4);
   transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.action-mini-icon {
+  font-size: 16px;
+  margin-bottom: 4px;
+  line-height: 1;
+}
+
+.action-mini-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #f8fafc;
+  white-space: nowrap;
+}
+
+.action-mini-desc {
+  font-size: 10px;
+  color: #94a3b8;
+  margin-top: 2px;
+  white-space: nowrap;
 }
 
 .action-main {

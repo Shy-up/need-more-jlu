@@ -30,16 +30,29 @@
         </div>
       </button>
 
-      <!-- 2. Official OA Portal -->
-      <button class="action-card action-secondary" id="btn-open-oa" title="打开吉大官方 OA (WebVPN)">
-        <div class="action-main">
-          <div class="action-title-row">
-            <span class="action-title">吉大官方 OA</span>
-            <span class="action-arrow">↗</span>
-          </div>
-          <div class="action-desc">略微优化了体验</div>
-        </div>
-      </button>
+      <!-- 2. Intranet Portals (OA / WebVPN / EMAP Home) -->
+      <div class="action-row-grid">
+        <!-- 2.1 Official OA -->
+        <button class="action-mini-card" id="btn-open-oa" title="打开吉大官方 OA (自动感知直连/VPN)">
+          <div class="action-mini-icon">📑</div>
+          <div class="action-mini-title">官方 OA</div>
+          <div class="action-mini-desc">公文通知</div>
+        </button>
+
+        <!-- 2.2 WebVPN Portal -->
+        <button class="action-mini-card" id="btn-open-vpn" title="打开吉大校外 WebVPN 门户 (vpn.jlu.edu.cn)">
+          <div class="action-mini-icon">🌐</div>
+          <div class="action-mini-title">WebVPN</div>
+          <div class="action-mini-desc">校外网关</div>
+        </button>
+
+        <!-- 2.3 EMAP Home Portal -->
+        <button class="action-mini-card" id="btn-open-emap" title="打开吉大教务微服务办事大厅 (自动感知直连/VPN)">
+          <div class="action-mini-icon">🎓</div>
+          <div class="action-mini-title">教务大厅</div>
+          <div class="action-mini-desc">微服务门户</div>
+        </button>
+      </div>
     </div>
 
     <!-- Campus & Status Footer -->
