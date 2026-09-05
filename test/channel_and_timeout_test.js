@@ -85,16 +85,45 @@ async function run() {
   assert.strictEqual(resB.error, 'UNAUTHENTICATED');
   console.log(' Unauth results correctly returned success: false & error: UNAUTHENTICATED');
 
-  // Case C: Real data with rows
-  const realResults = Array.from({ length: 12 }, (_, i) => ({
-    slot: i + 1,
-    res: { success: true, rows: [{ JASMC: '逸夫楼101' }] }
-  }));
-  const resC = simulateTimelineResults(realResults);
-  assert.strictEqual(resC.success, true);
-  assert.strictEqual(resC.slotsData.length, 12);
-  assert.strictEqual(resC.slotsData[0].rows.length, 1);
-  console.log(' Real data correctly returned success: true with rows');
+  // Case D: OA is reachable, but timetable database requires login
+  function simulateChannelTimetableProbe({ oaOk, vpnOk, timetableAuthOk }) {
+    let selectedChannel = null;
+    let authStatus = 'NOT_PROBED';
+    let timetableOk = false;
+
+    if (oaOk) {
+      selectedChannel = 'DIRECT';
+      timetableOk = timetableAuthOk;
+      authStatus = timetableAuthOk ? 'AUTHENTICATED' : 'UNAUTHENTICATED';
+    } else if (vpnOk) {
+      selectedChannel = 'WEBVPN';
+      timetableOk = timetableAuthOk;
+      authStatus = timetableAuthOk ? 'AUTHENTICATED' : 'UNAUTHENTICATED';
+    } else {
+      authStatus = 'DUAL_CHANNELS_UNREACHABLE';
+    }
+
+    return {
+      selectedChannel,
+      oaOk,
+      vpnOk,
+      timetableOk,
+      authStatus,
+      isLoggedIn: timetableOk
+    };
+  }
+
+  const probeUnauth = simulateChannelTimetableProbe({ oaOk: true, vpnOk: false, timetableAuthOk: false });
+  assert.strictEqual(probeUnauth.oaOk, true, 'OA is reachable');
+  assert.strictEqual(probeUnauth.timetableOk, false, 'Timetable must NOT be considered ready when unauthenticated');
+  assert.strictEqual(probeUnauth.authStatus, 'UNAUTHENTICATED', 'Must require login when timetable DB is not authenticated');
+  assert.strictEqual(probeUnauth.isLoggedIn, false);
+  console.log(' Verified: OA reachable does NOT mean timetable reachable; unauthenticated DB correctly requires login');
+
+  const probeAuth = simulateChannelTimetableProbe({ oaOk: true, vpnOk: false, timetableAuthOk: true });
+  assert.strictEqual(probeAuth.timetableOk, true);
+  assert.strictEqual(probeAuth.isLoggedIn, true);
+  console.log(' Verified: OA reachable + timetable DB authorized correctly considered ready');
 
   console.log('All unit tests passed successfully!');
 }

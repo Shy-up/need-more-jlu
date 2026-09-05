@@ -105,10 +105,123 @@ async function checkVpnReachability() {
 }
 
 /**
- * 并行测试双通道可达性：
- * oa可连 -> 校园网可达，优先走校园网；
- * vpn可连 -> 支持vpn；
- * 都不可达 -> 提示两条都不可达。
+ * 测试课表数据库 (iedu.jlu.edu.cn / cxkxjs.do) 是否真正可达且已认证
+ * OA 可达仅代表物理上处于校园网，不代表课表数据库仍可达；必须确保课表可达且无需登录才算"课表可达"。
+ */
+async function checkTimetableReachability(channelKey) {
+  const endpoint = CHANNELS[channelKey];
+  if (!endpoint) return { reachable: false, authenticated: false, error: 'NO_ENDPOINT' };
+
+  try {
+    const params = new URLSearchParams();
+    params.append('pageSize', '1');
+    params.append('pageNumber', '1');
+
+    const resp = await fetchWithTimeout(endpoint.apiUrl, {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+        'X-Requested-With': 'XMLHttpRequest',
+        'Accept': 'application/json, text/javascript, */*; q=0.01',
+        'Referer': endpoint.referer,
+        'Origin': endpoint.origin
+      },
+      body: params.toString()
+    }, PROBE_TIMEOUT_MS);
+
+    // 1. 检查重定向 (例如被重定向到 CAS 统一认证或 WebVPN 登录)
+    if (resp.redirected || (resp.url && (resp.url.includes('login') || resp.url.includes('cas') || resp.url.includes('tpass')))) {
+      return {
+        reachable: true,
+        authenticated: false,
+        error: 'UNAUTHENTICATED',
+        message: channelKey === 'DIRECT' ? '校园网已连通，但课表数据库未登录，请完成统一身份认证' : 'WebVPN 会话未登录，请先登录 WebVPN'
+      };
+    }
+
+    // 2. 检查 HTTP 状态码
+    if (!resp.ok) {
+      if (resp.status === 401 || resp.status === 403 || resp.status === 302) {
+        return {
+          reachable: true,
+          authenticated: false,
+          error: 'UNAUTHENTICATED',
+          message: channelKey === 'DIRECT' ? '校园网已连通，但课表数据库未登录，请完成统一身份认证' : 'WebVPN 会话未登录，请先登录 WebVPN'
+        };
+      }
+      return {
+        reachable: false,
+        authenticated: false,
+        error: 'HTTP_' + resp.status,
+        message: `课表数据库接口响应异常 (HTTP ${resp.status})`
+      };
+    }
+
+    // 3. 检查响应内容是否为登录页面 HTML
+    const text = await resp.text();
+    if (
+      text.includes('<!DOCTYPE') ||
+      text.includes('<html') ||
+      text.includes('Not login!') ||
+      text.includes('401.png') ||
+      text.includes('统一身份认证') ||
+      text.includes('login') ||
+      text.includes('cas.jlu.edu.cn')
+    ) {
+      return {
+        reachable: true,
+        authenticated: false,
+        error: 'UNAUTHENTICATED',
+        message: channelKey === 'DIRECT' ? '校园网已连通，但课表数据库未登录，请完成统一身份认证' : 'WebVPN 会话未登录，请先登录 WebVPN'
+      };
+    }
+
+    // 4. 解析 JSON 并验证是否包含合法 rows 结构
+    let json;
+    try {
+      json = JSON.parse(text);
+    } catch (e) {
+      return {
+        reachable: false,
+        authenticated: false,
+        error: 'PARSE_ERROR',
+        message: '课表数据库返回非标准响应'
+      };
+    }
+
+    const rows = json?.datas?.cxkxjs?.rows;
+    if (Array.isArray(rows)) {
+      return {
+        reachable: true,
+        authenticated: true,
+        totalSize: json?.datas?.cxkxjs?.totalSize || rows.length
+      };
+    }
+
+    return {
+      reachable: true,
+      authenticated: false,
+      error: 'NO_DATA',
+      message: '课表数据库未返回有效数据结构'
+    };
+  } catch (err) {
+    const isTimeout = (err.code === 'TIMEOUT' || err.name === 'TimeoutError');
+    return {
+      reachable: false,
+      authenticated: false,
+      error: isTimeout ? 'TIMEOUT' : 'NETWORK_ERROR',
+      message: isTimeout ? '课表数据库连接超时 (5s)' : `连接课表数据库失败: ${err.message || '网络中断'}`
+    };
+  }
+}
+
+/**
+ * 并行测试双通道可达性，并严格检验课表数据库可达性：
+ * 1. 测试 OA 直连确定是否处于校园网内；
+ * 2. 测试 WebVPN 确定是否支持 VPN 网关；
+ * 3. 关键：OA 可达时，必须进一步验证课表数据库是否可达且已认证！
+ *    若 OA 可达但课表数据库返回未登录/被拦截，则明确判定"课表不可达"并提示登录！
  */
 async function probeChannels(forceRefresh = false) {
   const now = Date.now();
@@ -116,33 +229,48 @@ async function probeChannels(forceRefresh = false) {
     return cachedProbeState;
   }
 
-  // 并行测试直连 OA 与 WebVPN
+  // 1. 并行测试直连 OA 与 WebVPN
   const [oaOk, vpnOk] = await Promise.all([
     checkOaReachability(),
     checkVpnReachability()
   ]);
 
   let selectedChannel = null;
+  let timetableStatus = { reachable: false, authenticated: false, error: 'NOT_PROBED' };
+
   if (oaOk) {
-    // 校园网可达：坚决优先选用校园网直连！
+    // 处于校园网：坚决选用校园网直连通道！
     selectedChannel = 'DIRECT';
+    // 关键：OA 可达并不代表课表数据库仍可达，必须确保课表可达才算"课表可达"
+    timetableStatus = await checkTimetableReachability('DIRECT');
   } else if (vpnOk) {
     // 校园网不可达，但 WebVPN 可达
     selectedChannel = 'WEBVPN';
+    timetableStatus = await checkTimetableReachability('WEBVPN');
   } else {
     // 两条都不可达
     selectedChannel = null;
+    timetableStatus = {
+      reachable: false,
+      authenticated: false,
+      error: 'DUAL_CHANNELS_UNREACHABLE',
+      message: '吉大校园网 (oa.jlu.edu.cn) 与校外 WebVPN (vpn.jlu.edu.cn) 均不可达，请检查网络连接'
+    };
   }
 
   cachedProbeState = {
     selectedChannel,
     oaOk,
     vpnOk,
+    timetableOk: timetableStatus.authenticated === true,
+    timetableReachable: timetableStatus.reachable === true,
+    authStatus: timetableStatus.authenticated ? 'AUTHENTICATED' : (timetableStatus.error || 'UNAUTHENTICATED'),
+    authMessage: timetableStatus.message || null,
     timestamp: now
   };
   lastProbeTime = now;
 
-  console.log(`[need_more_jlu] 通道探测完成: 校园网(OA直连)=${oaOk}, WebVPN=${vpnOk}, 优选通道=${selectedChannel}`);
+  console.log(`[need_more_jlu] 通道探测完成: 校园网(OA)=${oaOk}, WebVPN=${vpnOk}, 课表数据库可达=${cachedProbeState.timetableOk}, 认证状态=${cachedProbeState.authStatus}`);
   return cachedProbeState;
 }
 
@@ -183,6 +311,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           channelName: ch.name,
           oaOk: probe.oaOk,
           vpnOk: probe.vpnOk,
+          timetableOk: probe.timetableOk,
+          isLoggedIn: probe.timetableOk,
+          authStatus: probe.authStatus,
+          message: probe.authMessage,
           oaUrl: ch.oaUrl,
           authUrl: ch.authUrl
         });
@@ -191,6 +323,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         sendResponse({
           success: false,
           channel: 'DIRECT',
+          timetableOk: false,
+          isLoggedIn: false,
+          authStatus: 'ERROR',
           oaUrl: CHANNELS.DIRECT.oaUrl,
           authUrl: CHANNELS.DIRECT.authUrl,
           error: err.message
@@ -200,13 +335,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 
   if (request.type === 'CHECK_AUTH_STATUS') {
-    handleFetchClassrooms({ pageSize: 1 })
-      .then(result => {
-        const isRealDataReady = Boolean(result && result.success === true && Array.isArray(result.rows));
+    probeChannels(true)
+      .then(probe => {
         sendResponse({ 
-          isLoggedIn: isRealDataReady, 
-          channel: result?.channel || 'DIRECT',
-          error: result?.error || null
+          isLoggedIn: probe.timetableOk === true, 
+          channel: probe.selectedChannel || 'DIRECT',
+          error: probe.timetableOk ? null : probe.authStatus,
+          message: probe.authMessage
         });
       })
       .catch((err) => {
@@ -343,14 +478,26 @@ async function handleFetchClassrooms(payload = {}) {
       body: params.toString()
     }, 5000);
 
+    // 检查重定向 (例如被重定向到 CAS 统一认证或 WebVPN 登录)
+    if (resp.redirected || (resp.url && (resp.url.includes('login') || resp.url.includes('cas') || resp.url.includes('tpass')))) {
+      return {
+        success: false,
+        error: 'UNAUTHENTICATED',
+        channel: channelKey,
+        message: channelKey === 'DIRECT' 
+          ? '校园网已连通，但课表数据库未登录，请完成统一身份认证'
+          : 'WebVPN 网关未登录，请先登录 WebVPN'
+      };
+    }
+
     if (!resp.ok) {
-      if (resp.status === 401) {
+      if (resp.status === 401 || resp.status === 403 || resp.status === 302) {
         return {
           success: false,
           error: 'UNAUTHENTICATED',
           channel: channelKey,
           message: channelKey === 'DIRECT' 
-            ? '校园网已连通，但吉大教务系统提示未登录，请先登录统一身份认证'
+            ? '校园网已连通，但课表数据库提示未登录，请完成统一身份认证'
             : 'WebVPN 网关提示未登录，请先登录 WebVPN'
         };
       }
@@ -444,6 +591,9 @@ async function handleFetchClassrooms(payload = {}) {
         if (vpnResp.ok) {
           const vpnText = await vpnResp.text();
           if (
+            vpnResp.redirected ||
+            (vpnResp.url && (vpnResp.url.includes('login') || vpnResp.url.includes('cas'))) ||
+            vpnResp.status === 401 || vpnResp.status === 403 || vpnResp.status === 302 ||
             vpnText.includes('<!DOCTYPE') || 
             vpnText.includes('Not login!') || 
             vpnText.includes('401.png') || 
@@ -490,13 +640,25 @@ async function handleFetchClassrooms(payload = {}) {
 async function handleFetchTimeline(payload = {}) {
   const slots = payload.slots || [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
   
-  // 1. 先探活通道
+  // 1. 先探活通道并验证课表数据库状态
   const probe = await probeChannels();
   if (!probe.selectedChannel) {
     return {
       success: false,
       error: 'DUAL_CHANNELS_UNREACHABLE',
       message: '吉大校园网 (oa.jlu.edu.cn) 与校外 WebVPN (vpn.jlu.edu.cn) 均不可达，请检查网络连接'
+    };
+  }
+
+  // 关键：在 OA 可达时也必须确保课表数据库可达才认为"课表可达"，否则直接阻断并提示登录！
+  if (probe.timetableOk === false && probe.authStatus === 'UNAUTHENTICATED') {
+    return {
+      success: false,
+      error: 'UNAUTHENTICATED',
+      channel: probe.selectedChannel,
+      message: probe.authMessage || (probe.selectedChannel === 'DIRECT'
+        ? '校园网已连通，但课表数据库未登录，请完成统一身份认证'
+        : 'WebVPN 网关未登录，请先登录 WebVPN')
     };
   }
 

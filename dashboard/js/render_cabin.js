@@ -67,7 +67,7 @@ export function renderFloorCabinMap({
           <div class="empty-state-title">${isAuth ? '吉大教务未登录认证' : (isTimeout ? '教务系统连接超时 (5s)' : '教务接口通信失败 · 未能获取排课')}</div>
           <div class="empty-state-desc">
             ${isAuth
-          ? '当前教务会话未激活或已过期。请完成认证登录后重新拉取。'
+          ? '校园网已连通，但课表数据库需要统一身份认证授权后方可访问。请完成认证登录后重新拉取。'
           : (isTimeout
             ? '连接吉大教务服务 5 秒超时无响应。在校内系统会自动优先选择校园网直连；校外请连接 WebVPN。'
             : '与吉大教务处排课服务 (cxkxjs.do) 通信失败或校园网络中断，未能拉取排课数据。')}

@@ -153,7 +153,7 @@ export function showHardFailBarrier(errorResult, state = {}, currentCampus = nul
     if (titleEl) titleEl.textContent = '吉大教务未登录认证';
     if (subtitleEl) {
       subtitleEl.innerHTML = `
-        <br>
+        校园网已连通，但课表数据库需要统一身份认证授权。<br>
         点击下方按钮完成登录认证，认证成功后<strong>本页面将全自动检测并刷新</strong>。
       `;
     }

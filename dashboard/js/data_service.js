@@ -131,6 +131,64 @@ export async function directFetchParallelTimeline(payload, currentCampus, curren
   const buildingNames = currentBuildings.length > 0 ? currentBuildings.map(b => b.name).join(',') : '逸夫楼,第二教学楼,第一教学楼';
   const roomTypes = ALL_ROOM_TYPES_CODE;
 
+  // 关键：在 OA 可达时也必须确保课表数据库可达才算"课表可达"，否则提前阻断并提示登录
+  const primaryEndpoint = candidateEndpoints[0];
+  try {
+    const probeParams = new URLSearchParams();
+    probeParams.append('pageSize', '1');
+    probeParams.append('pageNumber', '1');
+    const testResp = await fetch(primaryEndpoint.apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+        'X-Requested-With': 'XMLHttpRequest',
+        'Accept': 'application/json, text/javascript, */*; q=0.01',
+        'Referer': primaryEndpoint.referer,
+        'Origin': primaryEndpoint.origin
+      },
+      body: probeParams.toString(),
+      signal: AbortSignal.timeout(4500)
+    });
+
+    if (testResp.redirected || (testResp.url && (testResp.url.includes('login') || testResp.url.includes('cas') || testResp.url.includes('tpass')))) {
+      return {
+        success: false,
+        error: 'UNAUTHENTICATED',
+        channel: primaryEndpoint.id,
+        message: primaryEndpoint.id === 'DIRECT' ? '校园网已连通，但课表数据库未登录，请完成统一身份认证' : 'WebVPN 网关未登录'
+      };
+    }
+
+    if (!testResp.ok && (testResp.status === 401 || testResp.status === 403 || testResp.status === 302)) {
+      return {
+        success: false,
+        error: 'UNAUTHENTICATED',
+        channel: primaryEndpoint.id,
+        message: primaryEndpoint.id === 'DIRECT' ? '校园网已连通，但课表数据库未登录，请完成统一身份认证' : 'WebVPN 网关未登录'
+      };
+    }
+
+    const testText = await testResp.text();
+    if (
+      testText.includes('<!DOCTYPE') ||
+      testText.includes('<html') ||
+      testText.includes('Not login!') ||
+      testText.includes('401.png') ||
+      testText.includes('统一身份认证') ||
+      testText.includes('login') ||
+      testText.includes('cas.jlu.edu.cn')
+    ) {
+      return {
+        success: false,
+        error: 'UNAUTHENTICATED',
+        channel: primaryEndpoint.id,
+        message: primaryEndpoint.id === 'DIRECT' ? '校园网已连通，但课表数据库未登录，请完成统一身份认证' : 'WebVPN 会话已失效'
+      };
+    }
+  } catch (probeErr) {
+    // 探测异常后续在循环中重试或返回超时
+  }
+
   let lastCandidateError = null;
 
   for (const endpoint of candidateEndpoints) {
@@ -177,9 +235,15 @@ export async function directFetchParallelTimeline(payload, currentCampus, curren
           signal: AbortSignal.timeout(5000)
         });
 
+        if (resp.redirected || (resp.url && (resp.url.includes('login') || resp.url.includes('cas') || resp.url.includes('tpass')))) {
+          const err = new Error(endpoint.id === 'DIRECT' ? '校园网课表未登录' : 'WebVPN 未登录');
+          err.code = 'UNAUTHENTICATED';
+          throw err;
+        }
+
         if (!resp.ok) {
-          if (resp.status === 401) {
-            const err = new Error(endpoint.id === 'DIRECT' ? '校园网教务未登录' : 'WebVPN 未登录');
+          if (resp.status === 401 || resp.status === 403 || resp.status === 302) {
+            const err = new Error(endpoint.id === 'DIRECT' ? '校园网课表未登录' : 'WebVPN 未登录');
             err.code = 'UNAUTHENTICATED';
             throw err;
           }
@@ -189,8 +253,16 @@ export async function directFetchParallelTimeline(payload, currentCampus, curren
         }
 
         const text = await resp.text();
-        if (text.includes('<!DOCTYPE') || text.includes('<html') || text.includes('Not login!') || text.includes('401.png') || text.includes('统一身份认证') || text.includes('login')) {
-          const err = new Error(endpoint.id === 'DIRECT' ? '校园网教务未登录' : 'WebVPN 会话已失效');
+        if (
+          text.includes('<!DOCTYPE') ||
+          text.includes('<html') ||
+          text.includes('Not login!') ||
+          text.includes('401.png') ||
+          text.includes('统一身份认证') ||
+          text.includes('login') ||
+          text.includes('cas.jlu.edu.cn')
+        ) {
+          const err = new Error(endpoint.id === 'DIRECT' ? '校园网课表未登录' : 'WebVPN 会话已失效');
           err.code = 'UNAUTHENTICATED';
           throw err;
         }
@@ -225,7 +297,7 @@ export async function directFetchParallelTimeline(payload, currentCampus, curren
           success: false,
           error: 'UNAUTHENTICATED',
           channel: endpoint.id,
-          message: endpoint.id === 'DIRECT' ? '校园网教务系统未登录，请先登录统一身份认证' : 'WebVPN 网关未登录'
+          message: endpoint.id === 'DIRECT' ? '校园网已连通，但课表数据库未登录，请完成统一身份认证' : 'WebVPN 网关未登录'
         };
       }
     }
