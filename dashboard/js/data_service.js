@@ -10,20 +10,126 @@ import {
   CHANNELS
 } from '../../config/constants.js';
 
-export async function loadRecommendationsConfig() {
-  let recommendationsConfig = null;
+const REMOTE_SOURCES = {
+  recommendations: [
+    'https://cdn.jsdelivr.net/gh/Shy-up/need-more-jlu@main/data/recommendations.json',
+    'https://raw.githubusercontent.com/Shy-up/need-more-jlu/main/data/recommendations.json'
+  ],
+  campuses: [
+    'https://cdn.jsdelivr.net/gh/Shy-up/need-more-jlu@main/data/campuses.json',
+    'https://raw.githubusercontent.com/Shy-up/need-more-jlu/main/data/campuses.json'
+  ]
+};
+
+const CACHE_KEYS = {
+  REC: 'nmj_remote_recommendations',
+  CAMPUS: 'nmj_remote_campuses',
+  LAST_SYNC: 'nmj_remote_sync_time'
+};
+
+const SYNC_INTERVAL_MS = 60 * 60 * 1000; // 1小时检查一次更新
+
+async function getCachedConfig(key) {
+  if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+    try {
+      const res = await chrome.storage.local.get([key]);
+      if (res && res[key]) return res[key];
+    } catch (e) {}
+  }
   try {
-    const configUrl = (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getURL)
-      ? chrome.runtime.getURL('data/recommendations.json')
-      : '../data/recommendations.json';
-    const res = await fetch(configUrl);
-    if (res.ok) {
-      recommendationsConfig = await res.json();
-    }
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : null;
   } catch (e) {
-    console.warn('[need_more_jlu] 读取 data/recommendations.json 失败，启用保底南岭推荐:', e);
+    return null;
+  }
+}
+
+async function setCachedConfig(key, value) {
+  if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+    try {
+      await chrome.storage.local.set({ [key]: value });
+    } catch (e) {}
+  }
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (e) {}
+}
+
+async function fetchFromSources(urls, timeoutMs = 3500) {
+  for (const url of urls) {
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      const res = await fetch(url, { signal: controller.signal, cache: 'no-cache' });
+      clearTimeout(timer);
+      if (res.ok) {
+        const data = await res.json();
+        if (data) return data;
+      }
+    } catch (err) {
+      // 尝试下一个候选 CDN 源
+    }
+  }
+  return null;
+}
+
+/**
+ * 静默异步从 GitHub 远程热同步最新配置文件
+ */
+let isSyncing = false;
+export async function syncRemoteConfigsSilently(force = false) {
+  if (isSyncing) return;
+  isSyncing = true;
+  try {
+    const lastSync = await getCachedConfig(CACHE_KEYS.LAST_SYNC);
+    const now = Date.now();
+    if (!force && lastSync && now - Number(lastSync) < SYNC_INTERVAL_MS) {
+      return;
+    }
+
+    const [remoteRec, remoteCampus] = await Promise.allSettled([
+      fetchFromSources(REMOTE_SOURCES.recommendations),
+      fetchFromSources(REMOTE_SOURCES.campuses)
+    ]);
+
+    if (remoteRec.status === 'fulfilled' && remoteRec.value && Array.isArray(remoteRec.value.recommendations)) {
+      await setCachedConfig(CACHE_KEYS.REC, remoteRec.value);
+      console.log('[need_more_jlu] 成功从 GitHub 热更新 recommendations.json');
+    }
+
+    if (remoteCampus.status === 'fulfilled' && remoteCampus.value && Array.isArray(remoteCampus.value.campuses)) {
+      await setCachedConfig(CACHE_KEYS.CAMPUS, remoteCampus.value);
+      console.log('[need_more_jlu] 成功从 GitHub 热更新 campuses.json');
+    }
+
+    await setCachedConfig(CACHE_KEYS.LAST_SYNC, now);
+  } catch (e) {
+    console.warn('[need_more_jlu] 静默同步远程配置遇到网络波动，已保留本地版本:', e);
+  } finally {
+    isSyncing = false;
+  }
+}
+
+export async function loadRecommendationsConfig() {
+  // 1. 优先读取已缓存的最新远程热更新版本（秒开）
+  let recommendationsConfig = await getCachedConfig(CACHE_KEYS.REC);
+
+  // 2. 若无缓存，读取扩展内置的离线版本作为基准
+  if (!recommendationsConfig || !Array.isArray(recommendationsConfig.recommendations)) {
+    try {
+      const configUrl = (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getURL)
+        ? chrome.runtime.getURL('data/recommendations.json')
+        : '../data/recommendations.json';
+      const res = await fetch(configUrl);
+      if (res.ok) {
+        recommendationsConfig = await res.json();
+      }
+    } catch (e) {
+      console.warn('[need_more_jlu] 读取本地 data/recommendations.json 失败:', e);
+    }
   }
 
+  // 3. 最终保底兜底（网络与本地均异常时）
   if (!recommendationsConfig || !Array.isArray(recommendationsConfig.recommendations)) {
     recommendationsConfig = {
       githubRepoUrl: 'https://github.com/Shy-up/need-more-jlu',
@@ -34,6 +140,9 @@ export async function loadRecommendationsConfig() {
       ]
     };
   }
+
+  // 4. 后台发起静默热更新探测（SWR 机制，不阻塞当前 UI 渲染）
+  setTimeout(() => syncRemoteConfigsSilently().catch(() => {}), 100);
 
   return recommendationsConfig;
 }
@@ -60,19 +169,25 @@ export function getSanitizedBuildingId(availableBuildings, targetCampusCode, rec
 }
 
 export async function loadCampusConfig(recommendationsConfig) {
-  let campusConfig = null;
-  try {
-    const configUrl = (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getURL)
-      ? chrome.runtime.getURL('data/campuses.json')
-      : '../data/campuses.json';
-    const res = await fetch(configUrl);
-    if (res.ok) {
-      campusConfig = await res.json();
+  // 1. 优先读取已缓存的最新远程热更新版本（秒开）
+  let campusConfig = await getCachedConfig(CACHE_KEYS.CAMPUS);
+
+  // 2. 若无缓存，读取扩展内置离线版本
+  if (!campusConfig || !Array.isArray(campusConfig.campuses) || campusConfig.campuses.length === 0) {
+    try {
+      const configUrl = (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getURL)
+        ? chrome.runtime.getURL('data/campuses.json')
+        : '../data/campuses.json';
+      const res = await fetch(configUrl);
+      if (res.ok) {
+        campusConfig = await res.json();
+      }
+    } catch (e) {
+      console.warn('[need_more_jlu] 读取本地 data/campuses.json 失败:', e);
     }
-  } catch (e) {
-    console.warn('[need_more_jlu] 读取 data/campuses.json 失败，启用保底南岭校区配置:', e);
   }
 
+  // 3. 最终保底兜底
   if (!campusConfig || !Array.isArray(campusConfig.campuses) || campusConfig.campuses.length === 0) {
     campusConfig = {
       defaultCampus: DEFAULT_CAMPUS_CODE,

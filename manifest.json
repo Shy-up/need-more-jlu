@@ -35,7 +35,9 @@
     "*://oa.jlu.edu.cn/*",
     "*://vpn.jlu.edu.cn/*",
     "*://iedu.jlu.edu.cn/*",
-    "*://*.jlu.edu.cn/*"
+    "*://*.jlu.edu.cn/*",
+    "https://raw.githubusercontent.com/*",
+    "https://cdn.jsdelivr.net/*"
   ],
   "content_scripts": [
     {

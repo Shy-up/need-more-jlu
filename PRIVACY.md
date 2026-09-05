@@ -24,7 +24,9 @@
 * **`cookies`**：用于在用户主动登录吉大官方服务（如 IEDU / WebVPN）时，本地读取必要的会话状态，以便为用户显示登录态和连通性。
 * **`declarativeNetRequest`**：用于处理校园网系统在特定网络环境下的跨域头与安全网关拦截优化，保障教务直连稳定性。
 * **`activeTab` / `tabs` / `scripting`**：用于在吉大官方 OA/VPN 页面注入微型抽屉导航和增强工具栏，不读取除吉大域名以外的任何标签页信息。
-* **`host_permissions` (`*.jlu.edu.cn`)**：严格限制插件的网络请求权限仅在吉林大学校内域名范围内生效。
+* **`host_permissions`**：
+  - `*://*.jlu.edu.cn/*`：用于与吉林大学校内教务及办公系统直接通信。
+  - `https://raw.githubusercontent.com/*` 与 `https://cdn.jsdelivr.net/*`：仅用于从开源代码仓库拉取最新的校区楼栋映射与自习室推荐元数据（纯静态 JSON 文件，不包含任何可执行代码），确保用户无需频繁更新扩展即可获取最新楼栋配置。绝不上传任何个人数据。
 
 ### 4. 源码开源与审计
 本扩展代码完全开源透明，任何人均可在 GitHub 仓库审阅所有前端与后台逻辑，监督并验证插件的安全性与隐私合规性。
@@ -51,7 +53,9 @@ This extension requests minimum necessary permissions strictly to enable essenti
 * **`cookies`**: To check authentication status when communicating directly with official university portals (IEDU / WebVPN).
 * **`declarativeNetRequest`**: To adjust local request headers when interacting with university web systems.
 * **`activeTab` / `tabs` / `scripting`**: To inject the lightweight quick-access drawer UI into official university portals (`oa.jlu.edu.cn`, `vpn.jlu.edu.cn`).
-* **`host_permissions` (`*://*.jlu.edu.cn/*`)**: Strictly confined to official Jilin University domains.
+* **`host_permissions`**:
+  - `*://*.jlu.edu.cn/*`: Communicates directly with official Jilin University portals.
+  - `https://raw.githubusercontent.com/*` and `https://cdn.jsdelivr.net/*`: Strictly used to fetch latest static building maps and study room recommendation metadata (plain JSON format, zero remote code) from the public repository without requiring manual extension updates. No user data is sent.
 
 ### 4. Open Source Transparency
 The complete source code of this extension is publicly available on GitHub for open inspection and community audit.
