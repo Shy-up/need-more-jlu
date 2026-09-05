@@ -46,7 +46,13 @@ export function stopQrLoginPolling() {
   }
 }
 
+let isAuthSuccessHandled = false;
+let currentOnSuccessCallback = null;
+
 export function handleAuthSuccessNotification(onSuccess) {
+  if (isAuthSuccessHandled) return;
+  isAuthSuccessHandled = true;
+
   stopQrLoginPolling();
 
   if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
@@ -64,8 +70,9 @@ export function handleAuthSuccessNotification(onSuccess) {
 
   setTimeout(() => {
     hideBarrierPanel();
-    if (typeof onSuccess === 'function') onSuccess();
-  }, 600);
+    const cb = onSuccess || currentOnSuccessCallback;
+    if (typeof cb === 'function') cb();
+  }, 400);
 }
 
 export async function checkLoginAndAutoReload(onSuccess) {
@@ -87,8 +94,6 @@ export async function checkLoginAndAutoReload(onSuccess) {
   });
 }
 
-let currentOnSuccessCallback = null;
-
 // 监听认证弹窗抵达目标位置后的后台广播，无需等待轮询间隔，实现毫秒级自动响应与窗口关闭
 if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
   chrome.runtime.onMessage.addListener((msg) => {
@@ -100,6 +105,7 @@ if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage)
 }
 
 export function startEmbeddedQrLoginFlow(onSuccess) {
+  isAuthSuccessHandled = false;
   currentOnSuccessCallback = onSuccess;
   const statusText = document.getElementById('qrStatusText');
   const qrContainer = document.getElementById('barrierQrContainer');

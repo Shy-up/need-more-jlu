@@ -618,7 +618,23 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
   }
 
-  if (request.type === 'AUTH_SUCCESS_CLOSE_WINDOW' || request.type === 'CLOSE_AUTH_WINDOW') {
+  if (request.type === 'CLOSE_AUTH_WINDOW') {
+    getTrackedAuthWindow().then((stored) => {
+      if (stored) {
+        if (stored.winId && chrome.windows) {
+          chrome.windows.remove(stored.winId).catch(() => {});
+        }
+        if (stored.tabId && chrome.tabs) {
+          chrome.tabs.remove(stored.tabId).catch(() => {});
+        }
+      }
+      clearTrackedAuthWindow();
+    });
+    sendResponse({ success: true });
+    return true;
+  }
+
+  if (request.type === 'AUTH_SUCCESS_CLOSE_WINDOW') {
     cachedProbeState = null;
     lastProbeTime = 0;
 
@@ -634,7 +650,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       clearTrackedAuthWindow();
     });
 
-    // 广播通知前端仪表盘认证全流程已完成，立即刷新呈现课室舱位
+    // 仅在弹窗抵达目标成功关闭时向前端广播一次，绝不在主动关闭请求中回声广播
     try {
       chrome.runtime.sendMessage({
         type: 'AUTH_COMPLETED_NOTIFY',

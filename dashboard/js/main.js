@@ -323,43 +323,68 @@ function renderCabin() {
   });
 }
 
-async function loadParallelTimelineData() {
-  state.fetchStatus = 'LOADING';
-  updateBadgeState('loading', '正在获取排课数据...');
-  showLoadingPanel(true);
-  hideBarrierPanel();
-  hideContentArea();
+let isLoadingTimeline = false;
 
-  const payload = {
-    campusCode: state.campusCode,
-    buildingCode: currentBuildings.map(b => b.code).join(',') || DEFAULT_BUILDINGS,
-    date: state.queryDate,
-    slots: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
-  };
-
-  const result = await fetchTimelineData(payload, currentCampus, currentBuildings);
-
-  showLoadingPanel(false);
-
-  // Hard-Fail Check
-  if (!result || !result.success || !Array.isArray(result.slotsData)) {
-    state.fetchStatus = result?.error || 'NETWORK_ERROR';
-    state.isDataLoaded = false;
-    showHardFailBarrier(result, state, currentCampus, currentBuildings);
+async function loadParallelTimelineData(force = false) {
+  if (isLoadingTimeline && !force) {
+    console.log('[need_more_jlu] 排课数据正在加载中，跳过并发重复请求');
     return;
   }
+  isLoadingTimeline = true;
 
-  state.fetchStatus = 'SUCCESS';
-  state.isDataLoaded = true;
+  state.fetchStatus = 'LOADING';
+  updateBadgeState('loading', state.isDataLoaded ? '正在同步排课数据...' : '正在获取排课数据...');
 
-  // Process timeline slices
-  const processed = mergeAndProcessTimeline(result.slotsData, currentBuildings);
-  buildingRoomsMap = processed.buildingRoomsMap;
+  // 关键防闪烁：仅当页面从未加载过数据时，才显示全屏 loading 面板；
+  // 若页面已有数据（静默刷新），保持内容区域可见，仅更新顶栏 Badge，杜绝页面剧烈跳动！
+  if (!state.isDataLoaded) {
+    showLoadingPanel(true);
+    hideBarrierPanel();
+    hideContentArea();
+  }
 
-  updateBadgeState('connected', `数据已更新 · 共 ${processed.totalRoomsFound} 间教室`);
-  showContentArea();
-  renderMacro();
-  renderCabin();
+  try {
+    const payload = {
+      campusCode: state.campusCode,
+      buildingCode: currentBuildings.map(b => b.code).join(',') || DEFAULT_BUILDINGS,
+      date: state.queryDate,
+      slots: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+    };
+
+    const result = await fetchTimelineData(payload, currentCampus, currentBuildings);
+
+    showLoadingPanel(false);
+
+    // Hard-Fail Check
+    if (!result || !result.success || !Array.isArray(result.slotsData)) {
+      state.fetchStatus = result?.error || 'NETWORK_ERROR';
+
+      // 关键防闪烁：若此前已有数据且本次仅为网络暂时波动（如 TIMEOUT），保持现有数据显示并提示，避免白屏闪跳
+      if (state.isDataLoaded && (result?.error === 'TIMEOUT' || result?.error === 'NETWORK_ERROR')) {
+        updateBadgeState('disconnected', '网络较慢 · 显示当前数据 (点击重试)');
+        return;
+      }
+
+      state.isDataLoaded = false;
+      showHardFailBarrier(result, state, currentCampus, currentBuildings);
+      return;
+    }
+
+    state.fetchStatus = 'SUCCESS';
+    state.isDataLoaded = true;
+
+    // Process timeline slices
+    const processed = mergeAndProcessTimeline(result.slotsData, currentBuildings);
+    buildingRoomsMap = processed.buildingRoomsMap;
+
+    updateBadgeState('connected', `数据已更新 · 共 ${processed.totalRoomsFound} 间教室`);
+    showContentArea();
+    renderMacro();
+    renderCabin();
+  } finally {
+    isLoadingTimeline = false;
+    showLoadingPanel(false);
+  }
 }
 
 // ============================================================================
