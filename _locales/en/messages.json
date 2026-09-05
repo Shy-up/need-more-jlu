@@ -1,0 +1,14 @@
+{
+  "extensionName": {
+    "message": "need_more_jlu - JLU Campus Utility Toolkit",
+    "description": "Extension name"
+  },
+  "extensionDescription": {
+    "message": "Vacant classroom lookup, OA enhancement, and campus utilities for JLU students.",
+    "description": "Extension description"
+  },
+  "actionTitle": {
+    "message": "need_more_jlu Control Panel",
+    "description": "Tooltip for the action icon"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "extensionName": {
+    "message": "need_more_jlu - 吉大校园网实用增强",
+    "description": "扩展程序名称"
+  },
+  "extensionDescription": {
+    "message": "空闲教室查询，OA增强等小功能",
+    "description": "扩展程序描述"
+  },
+  "actionTitle": {
+    "message": "need_more_jlu 控制面板",
+    "description": "工具栏图标提示"
+  }
+}
