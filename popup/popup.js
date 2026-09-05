@@ -26,10 +26,15 @@ document.addEventListener('DOMContentLoaded', () => {
   const easterEggWrapper = document.getElementById('easterEggWrapper');
   const easterEggText = document.getElementById('easterEggText');
 
-  // Load campus memory
+  // Load campus memory & dynamic version
   const campusKey = localStorage.getItem('nmj_campus') || DEFAULT_CAMPUS_CODE;
   if (popupCampusName) {
     popupCampusName.textContent = CAMPUS_NAMES[campusKey] || CAMPUS_NAMES[DEFAULT_CAMPUS_CODE] || '南岭校区';
+  }
+  const popupVersionLabel = document.getElementById('popupVersionLabel');
+  if (popupVersionLabel && typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getManifest) {
+    const ver = chrome.runtime.getManifest()?.version;
+    if (ver) popupVersionLabel.textContent = `v${ver}`;
   }
 
   // 1. OA 地址（默认直连）
