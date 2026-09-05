@@ -469,16 +469,68 @@ async function probeChannels(forceRefresh = false) {
 }
 
 // ============================================================================
-// 认证弹窗定向生命周期与精准跟踪（杜绝误跳转用户自己单开的 WebVPN 标签页）
+// 认证弹窗定向生命周期与持久化精准跟踪（杜绝误跳转用户自己单开的 WebVPN 标签页）
 // ============================================================================
-let trackedAuthTabId = null;
-let trackedAuthWinId = null;
+let inMemoryAuthWindow = null;
+
+async function getTrackedAuthWindow() {
+  if (inMemoryAuthWindow && (Date.now() - inMemoryAuthWindow.createdAt < 600000)) {
+    return inMemoryAuthWindow;
+  }
+  try {
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      const res = await chrome.storage.local.get(['nmj_auth_window']);
+      if (res && res.nmj_auth_window && (Date.now() - res.nmj_auth_window.createdAt < 600000)) {
+        inMemoryAuthWindow = res.nmj_auth_window;
+        return inMemoryAuthWindow;
+      }
+    }
+  } catch (e) {}
+  return null;
+}
+
+async function setTrackedAuthWindow(info) {
+  inMemoryAuthWindow = info;
+  try {
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      await chrome.storage.local.set({ nmj_auth_window: info });
+    }
+  } catch (e) {}
+}
+
+async function clearTrackedAuthWindow() {
+  inMemoryAuthWindow = null;
+  try {
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      await chrome.storage.local.remove(['nmj_auth_window']);
+    }
+  } catch (e) {}
+}
 
 if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.onUpdated) {
-  chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+    const stored = await getTrackedAuthWindow();
+    if (!stored) return;
+
     // 严格隔离：仅当此标签页是专属认证弹窗 (tabId 匹配或 windowId 匹配) 时才执行中转，绝不干预普通标签页
-    const isTracked = (trackedAuthTabId && tabId === trackedAuthTabId) || (trackedAuthWinId && tab?.windowId === trackedAuthWinId);
+    const isTracked = (stored.tabId && tabId === stored.tabId) || (stored.winId && tab?.windowId === stored.winId);
     if (!isTracked) return;
+
+    // 动态同步 tabId
+    if (!stored.tabId && tabId) {
+      stored.tabId = tabId;
+      await setTrackedAuthWindow(stored);
+    }
+
+    // 主动注入 window.name = 'JLU_AUTH_WINDOW' 确保同源与跨域导航中 window.name 保持一致
+    if (tabId && chrome.scripting) {
+      chrome.scripting.executeScript({
+        target: { tabId },
+        func: () => {
+          try { window.name = 'JLU_AUTH_WINDOW'; } catch (e) {}
+        }
+      }).catch(() => {});
+    }
 
     const url = changeInfo.url || tab?.url;
     if (!url) return;
@@ -486,12 +538,13 @@ if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.onUpdated) {
     try {
       const u = new URL(url);
       if (u.hostname === 'vpn.jlu.edu.cn') {
-        // 判定是否进入了 WebVPN 控制台首页（排除登录页和已进入的教务/OA应用页）
-        const isLogin = u.pathname.includes('/login') || u.search.includes('cas_login');
-        const isAlreadyApp = u.pathname.includes('/jwapp/') || u.pathname.includes('/defaultroot/');
+        const pathname = u.pathname.toLowerCase();
+        // 精确判定：排除精确登录页面（千万不能用 cas_login 排除，因为登录完成后 CAS 回跳依然带有 cas_login 参数）
+        const isExactLogin = (pathname === '/login' || pathname.startsWith('/login/') || pathname.startsWith('/tpass'));
+        const isAlreadyApp = pathname.includes('/jwapp/') || pathname.includes('/defaultroot/');
 
-        if (!isLogin && !isAlreadyApp) {
-          console.log('[need_more_jlu] 定向捕获认证弹窗进入 WebVPN 首页，自动中转至教务系统:', tabId);
+        if (!isExactLogin && !isAlreadyApp) {
+          console.log('[need_more_jlu] 定向捕获认证弹窗进入 WebVPN 控制台首页，后台自动中转至教务系统:', tabId);
           const targetEmapUrl = `https://vpn.jlu.edu.cn${WEBVPN_HASH}/jwapp/sys/kxjas/*default/index.do?THEME=purple&EMAP_LANG=en#/kxjscx`;
           chrome.tabs.update(tabId, { url: targetEmapUrl });
         }
@@ -502,18 +555,18 @@ if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.onUpdated) {
 
 // 监听标签页或窗口关闭，及时销毁跟踪
 if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.onRemoved) {
-  chrome.tabs.onRemoved.addListener((tabId) => {
-    if (tabId === trackedAuthTabId) {
-      trackedAuthTabId = null;
-      trackedAuthWinId = null;
+  chrome.tabs.onRemoved.addListener(async (tabId) => {
+    const stored = await getTrackedAuthWindow();
+    if (stored && stored.tabId === tabId) {
+      clearTrackedAuthWindow();
     }
   });
 }
 if (typeof chrome !== 'undefined' && chrome.windows && chrome.windows.onRemoved) {
-  chrome.windows.onRemoved.addListener((winId) => {
-    if (winId === trackedAuthWinId) {
-      trackedAuthTabId = null;
-      trackedAuthWinId = null;
+  chrome.windows.onRemoved.addListener(async (winId) => {
+    const stored = await getTrackedAuthWindow();
+    if (stored && stored.winId === winId) {
+      clearTrackedAuthWindow();
     }
   });
 }
@@ -526,11 +579,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.type === 'OPEN_AUTH_WINDOW') {
     const { url, width = 760, height = 720, left = 100, top = 100 } = request.payload || {};
 
-    if (trackedAuthWinId && chrome.windows) {
-      chrome.windows.remove(trackedAuthWinId).catch(() => {});
-      trackedAuthTabId = null;
-      trackedAuthWinId = null;
-    }
+    getTrackedAuthWindow().then(async (prev) => {
+      if (prev && prev.winId && chrome.windows) {
+        chrome.windows.remove(prev.winId).catch(() => {});
+      }
+      await clearTrackedAuthWindow();
+    });
 
     if (chrome.windows && chrome.windows.create) {
       chrome.windows.create({
@@ -543,7 +597,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         focused: true
       }, async (win) => {
         if (win) {
-          trackedAuthWinId = win.id;
           let tabId = (win.tabs && win.tabs.length > 0) ? win.tabs[0].id : null;
           if (!tabId && chrome.tabs && chrome.tabs.query) {
             try {
@@ -551,9 +604,26 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
               if (tabs && tabs.length > 0) tabId = tabs[0].id;
             } catch (e) {}
           }
-          trackedAuthTabId = tabId;
-          console.log('[need_more_jlu] 认证窗口启动就绪: winId =', trackedAuthWinId, ', tabId =', trackedAuthTabId);
-          sendResponse({ success: true, tabId: trackedAuthTabId, winId: trackedAuthWinId });
+
+          const info = {
+            winId: win.id,
+            tabId: tabId,
+            targetUrl: url,
+            createdAt: Date.now()
+          };
+          await setTrackedAuthWindow(info);
+
+          if (tabId && chrome.scripting) {
+            chrome.scripting.executeScript({
+              target: { tabId },
+              func: () => {
+                try { window.name = 'JLU_AUTH_WINDOW'; } catch (e) {}
+              }
+            }).catch(() => {});
+          }
+
+          console.log('[need_more_jlu] 认证窗口启动就绪(已持久化): winId =', win.id, ', tabId =', tabId);
+          sendResponse({ success: true, tabId, winId: win.id });
         } else {
           sendResponse({ success: false });
         }
@@ -566,12 +636,26 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 
   if (request.type === 'CLOSE_AUTH_WINDOW') {
-    if (trackedAuthWinId && chrome.windows) {
-      chrome.windows.remove(trackedAuthWinId).catch(() => {});
-    }
-    trackedAuthTabId = null;
-    trackedAuthWinId = null;
+    getTrackedAuthWindow().then((stored) => {
+      if (stored && stored.winId && chrome.windows) {
+        chrome.windows.remove(stored.winId).catch(() => {});
+      }
+      clearTrackedAuthWindow();
+    });
     sendResponse({ success: true });
+    return true;
+  }
+
+  if (request.type === 'CHECK_IS_AUTH_WINDOW') {
+    const senderTabId = sender?.tab?.id;
+    const senderWinId = sender?.tab?.windowId;
+    getTrackedAuthWindow().then((stored) => {
+      const isAuth = stored && (
+        (senderTabId && stored.tabId && senderTabId === stored.tabId) ||
+        (senderWinId && stored.winId && senderWinId === stored.winId)
+      );
+      sendResponse({ isAuthWindow: Boolean(isAuth) });
+    });
     return true;
   }
 

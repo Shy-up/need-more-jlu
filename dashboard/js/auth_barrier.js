@@ -50,7 +50,7 @@ export function handleAuthSuccessNotification(onSuccess) {
   stopQrLoginPolling();
 
   if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
-    chrome.runtime.sendMessage({ type: 'CLOSE_AUTH_WINDOW' }, () => {});
+    chrome.runtime.sendMessage({ type: 'CLOSE_AUTH_WINDOW' }, () => { });
   }
 
   if (loginAuthWindow && !loginAuthWindow.closed) {
@@ -79,7 +79,7 @@ export async function checkLoginAndAutoReload(onSuccess) {
       handleAuthSuccessNotification(onSuccess);
     } else if (res && statusText) {
       if (res.channel === 'WEBVPN') {
-        statusText.innerHTML = '<span class="qr-status-dot pulse"></span> 正在等待 WebVPN 教务系统会话确认... 登录后将自动跳转同步<br><span style="font-size: 0.85em; opacity: 0.8; display: inline-block; margin-top: 4px;">💡 若停留在控制台首页，也可在页面中直接点击【(新)教务管理系统】</span>';
+        statusText.innerHTML = '<span class="qr-status-dot pulse"></span> 正在等待 WebVPN 教务系统会话确认... 登录后弹窗将自动中转并同步<br><span style="font-size: 0.85em; opacity: 0.8; display: inline-block; margin-top: 4px;">💡 登录成功后弹窗将自动进入教务排课舱位，无需重复点击</span>';
       } else if (res.message) {
         statusText.innerHTML = `<span class="qr-status-dot pulse"></span> ${res.message}`;
       }
@@ -100,7 +100,7 @@ export function startEmbeddedQrLoginFlow(onSuccess) {
     const targetUrl = authUrl || 'https://iedu.jlu.edu.cn/jwapp/sys/kxjas/*default/index.do?THEME=purple&EMAP_LANG=en#/kxjscx';
     if (statusText) {
       statusText.innerHTML = isVpn
-        ? '<span class="qr-status-dot pulse"></span> 正在等待 WebVPN 统一身份认证... 登录后将自动跳转教务系统并同步<br><span style="font-size: 0.85em; opacity: 0.8; display: inline-block; margin-top: 4px;">💡 若停留在控制台首页，也可在页面中直接点击【(新)教务管理系统】</span>'
+        ? '<span class="qr-status-dot pulse"></span> 正在等待 WebVPN 统一身份认证... 登录后弹窗将自动中转并同步<br><span style="font-size: 0.85em; opacity: 0.8; display: inline-block; margin-top: 4px;">💡 登录成功后弹窗将自动进入教务排课舱位，无需重复点击</span>'
         : '<span class="qr-status-dot pulse"></span> 正在等待登录确认... 若弹出证书警告请点击【高级 ➔ 继续前往】放行';
     }
 
@@ -175,7 +175,7 @@ export function showHardFailBarrier(errorResult, state = {}, currentCampus = nul
 
   const isDualFail = (errorResult?.error === 'DUAL_CHANNELS_UNREACHABLE');
   const isUnauth = (
-    errorResult?.error === 'UNAUTHENTICATED' || 
+    errorResult?.error === 'UNAUTHENTICATED' ||
     (errorResult?.channel === 'DIRECT' && !isDualFail) ||
     (typeof errorResult?.message === 'string' && (errorResult.message.includes('登录') || errorResult.message.includes('会话') || errorResult.message.includes('过期')))
   );
