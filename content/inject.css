@@ -306,17 +306,18 @@ body.nmj-is-resizing {
   z-index: 10;
 }
 
-.nmj-spinner {
-  width: 32px;
-  height: 32px;
-  border: 3px solid #e2e8f0;
-  border-top-color: #0284c7;
-  border-radius: 50%;
-  animation: nmjSpin 0.7s linear infinite;
+.nmj-loading-sleepy {
+  width: 80px;
+  height: auto;
+  border-radius: 14px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  animation: nmjFloatSleepy 2.5s ease-in-out infinite;
+  user-select: none;
 }
 
-@keyframes nmjSpin {
-  to { transform: rotate(360deg); }
+@keyframes nmjFloatSleepy {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
 }
 
 /* -------------------------------------------------------------

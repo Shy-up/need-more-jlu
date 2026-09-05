@@ -49,7 +49,7 @@ window.NMJDrawer = (function() {
 
           <div class="nmj-drawer-frame-wrap" id="nmj-drawer-frame-wrap">
             <div class="nmj-frame-loading" id="nmj-frame-loading">
-              <div class="nmj-spinner"></div>
+              <img class="nmj-loading-sleepy" src="${(typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getURL) ? chrome.runtime.getURL('assets/sleepy.gif') : '../assets/sleepy.gif'}" alt="正在载入公文..." />
               <span>正在载入官方公文原文...</span>
             </div>
             <!-- NOTE: No sandbox attribute to guarantee native browser file downloads -->
