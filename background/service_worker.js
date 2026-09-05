@@ -468,19 +468,19 @@ async function probeChannels(forceRefresh = false) {
   return cachedProbeState;
 }
 
-let lastAuthRequestTime = 0;
+// ============================================================================
+// 认证弹窗定向生命周期与精准跟踪（杜绝误跳转用户自己单开的 WebVPN 标签页）
+// ============================================================================
+let trackedAuthTabId = null;
+let trackedAuthWinId = null;
 
-// ============================================================================
-// 监听认证标签页跳转：当用户完成 WebVPN 登录停留在控制台首页时，自动无缝重定向到教务系统
-// ============================================================================
 if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.onUpdated) {
   chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+    // 严格隔离：仅当此标签页是由插件明确拉起的认证弹窗时才执行中转，对用户单开的其他 WebVPN 页面绝对零干扰
+    if (!trackedAuthTabId || tabId !== trackedAuthTabId) return;
+
     const url = changeInfo.url || tab?.url;
     if (!url) return;
-
-    // 若在近期（10分钟内）发起过认证流程
-    const isRecentAuth = (Date.now() - lastAuthRequestTime < 10 * 60 * 1000);
-    if (!isRecentAuth) return;
 
     try {
       const u = new URL(url);
@@ -491,8 +491,7 @@ if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.onUpdated) {
         const isPortalPath = (u.pathname === '/' || u.pathname === '/index.html' || u.pathname.startsWith('/portal'));
 
         if (isNotLogin && isNotApp && isPortalPath) {
-          console.log('[need_more_jlu] 捕获到 WebVPN 登录成功停留在控制台首页，自动中转至教务系统:', tabId, url);
-          lastAuthRequestTime = 0; // 重置，防止反复重定向
+          console.log('[need_more_jlu] 定向捕获认证弹窗进入 WebVPN 首页，自动中转至教务系统:', tabId);
           const targetEmapUrl = `https://vpn.jlu.edu.cn${WEBVPN_HASH}/jwapp/sys/kxjas/*default/index.do?THEME=purple&EMAP_LANG=en#/kxjscx`;
           chrome.tabs.update(tabId, { url: targetEmapUrl });
         }
@@ -501,11 +500,65 @@ if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.onUpdated) {
   });
 }
 
+// 监听标签页关闭，及时销毁跟踪
+if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.onRemoved) {
+  chrome.tabs.onRemoved.addListener((tabId) => {
+    if (tabId === trackedAuthTabId) {
+      trackedAuthTabId = null;
+      trackedAuthWinId = null;
+    }
+  });
+}
+
 // ============================================================================
 // 3. 运行时消息分发
 // ============================================================================
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.type === 'OPEN_AUTH_WINDOW') {
+    const { url, width = 760, height = 720, left = 100, top = 100 } = request.payload || {};
+
+    if (trackedAuthWinId && chrome.windows) {
+      chrome.windows.remove(trackedAuthWinId).catch(() => {});
+      trackedAuthTabId = null;
+      trackedAuthWinId = null;
+    }
+
+    if (chrome.windows && chrome.windows.create) {
+      chrome.windows.create({
+        url,
+        type: 'popup',
+        width,
+        height,
+        left,
+        top,
+        focused: true
+      }, (win) => {
+        if (win && win.tabs && win.tabs.length > 0) {
+          trackedAuthTabId = win.tabs[0].id;
+          trackedAuthWinId = win.id;
+          sendResponse({ success: true, tabId: trackedAuthTabId, winId: trackedAuthWinId });
+        } else {
+          sendResponse({ success: false });
+        }
+      });
+      return true;
+    } else {
+      sendResponse({ success: false, fallback: true });
+      return true;
+    }
+  }
+
+  if (request.type === 'CLOSE_AUTH_WINDOW') {
+    if (trackedAuthWinId && chrome.windows) {
+      chrome.windows.remove(trackedAuthWinId).catch(() => {});
+    }
+    trackedAuthTabId = null;
+    trackedAuthWinId = null;
+    sendResponse({ success: true });
+    return true;
+  }
+
   if (request.type === 'IEDU_TAB_READY') {
     console.log('[need_more_jlu] 收到 iedu 标签页同源握手通知:', request.url);
     cachedProbeState = null;
@@ -515,7 +568,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 
   if (request.type === 'PREPARE_QR_LOGIN') {
-    lastAuthRequestTime = Date.now();
     (async () => {
       try {
         const cookieConfigs = [

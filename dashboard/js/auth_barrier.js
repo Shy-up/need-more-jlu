@@ -49,6 +49,10 @@ export function stopQrLoginPolling() {
 export function handleAuthSuccessNotification(onSuccess) {
   stopQrLoginPolling();
 
+  if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+    chrome.runtime.sendMessage({ type: 'CLOSE_AUTH_WINDOW' }, () => {});
+  }
+
   if (loginAuthWindow && !loginAuthWindow.closed) {
     try { loginAuthWindow.close(); } catch (e) { }
   }
@@ -105,14 +109,35 @@ export function startEmbeddedQrLoginFlow(onSuccess) {
     const left = Math.max(0, Math.round(window.screenX + (window.outerWidth - width) / 2));
     const top = Math.max(0, Math.round(window.screenY + (window.outerHeight - height) / 2));
 
-    if (!loginAuthWindow || loginAuthWindow.closed) {
-      loginAuthWindow = window.open(
-        targetUrl,
-        'JLU_AUTH_WINDOW',
-        `width=${width},height=${height},left=${left},top=${top},menubar=no,toolbar=no,location=no,status=no`
-      );
+    // 优先通过后台创建定向跟踪的独立认证弹窗（实现精准中转，绝不干扰普通标签页）
+    if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+      chrome.runtime.sendMessage({
+        type: 'OPEN_AUTH_WINDOW',
+        payload: { url: targetUrl, width, height, left, top }
+      }, (res) => {
+        if (!res || !res.success) {
+          // 降级兜底 window.open
+          if (!loginAuthWindow || loginAuthWindow.closed) {
+            loginAuthWindow = window.open(
+              targetUrl,
+              'JLU_AUTH_WINDOW',
+              `width=${width},height=${height},left=${left},top=${top},menubar=no,toolbar=no,location=no,status=no`
+            );
+          } else {
+            loginAuthWindow.focus();
+          }
+        }
+      });
     } else {
-      loginAuthWindow.focus();
+      if (!loginAuthWindow || loginAuthWindow.closed) {
+        loginAuthWindow = window.open(
+          targetUrl,
+          'JLU_AUTH_WINDOW',
+          `width=${width},height=${height},left=${left},top=${top},menubar=no,toolbar=no,location=no,status=no`
+        );
+      } else {
+        loginAuthWindow.focus();
+      }
     }
 
     // 持续探测真实排课数据，一旦登录成功自动进入
